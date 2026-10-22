@@ -1,7 +1,9 @@
 [extend]
 useDefault = true
 
-# La clave publicable de Supabase es pública por diseño (va en el navegador).
 [allowlist]
-description = "Claves públicas de Supabase"
+description = "Valores públicos o de prueba que no son secretos"
+# La clave publicable de Supabase es pública por diseño (va en el navegador).
 regexes = ['''sb_publishable_[A-Za-z0-9_-]+''']
+# Pruebas del backend Python anterior (ya eliminado): contraseña ficticia de test.
+paths = ['''^backend/tests/''']
