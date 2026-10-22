@@ -1,0 +1,4 @@
+project_id = "hreaxtlivntifwmaacox"
+
+[functions.invest]
+verify_jwt = true

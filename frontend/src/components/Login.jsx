@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { api } from "../api.js";
 
-export default function Login({ onLogin }) {
+export default function Login({ onLogin, notice }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -13,7 +13,7 @@ export default function Login({ onLogin }) {
     setError("");
     try {
       await api.login(email, password);
-      onLogin();
+      await onLogin();
     } catch (err) {
       setError(err.message);
     } finally {
@@ -45,7 +45,7 @@ export default function Login({ onLogin }) {
             required
           />
         </label>
-        {error && <p className="error">{error}</p>}
+        {(error || notice) && <p className="error">{error || notice}</p>}
         <button className="btn primary" disabled={busy}>
           {busy ? "Entrando…" : "Entrar"}
         </button>

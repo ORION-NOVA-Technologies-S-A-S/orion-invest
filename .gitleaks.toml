@@ -1,0 +1,7 @@
+[extend]
+useDefault = true
+
+# La clave publicable de Supabase es pública por diseño (va en el navegador).
+[allowlist]
+description = "Claves públicas de Supabase"
+regexes = ['''sb_publishable_[A-Za-z0-9_-]+''']

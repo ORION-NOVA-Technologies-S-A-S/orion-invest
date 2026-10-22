@@ -1,117 +1,101 @@
 # Orion Invest
 
-Plataforma web de inversión de **Orion Nova Technologies** para comprar y vender **acciones, ETF y criptomonedas** de EE. UU. a través de la API de [Alpaca](https://alpaca.markets).
+Plataforma web de inversión de **Orion Nova Technologies** para comprar y vender **acciones, ETF y criptomonedas** de EE. UU. con dinero real a través de [Alpaca](https://alpaca.markets).
+
+**Web:** https://orion-nova-technologies-s-a-s.github.io/orion-invest/
 
 | Capa | Tecnología |
 |---|---|
-| Frontend | React 18 + Vite |
-| Backend | Python 3.12 + FastAPI |
-| Base de datos | PostgreSQL 16 |
+| Frontend | React 18 + Vite, publicado en GitHub Pages |
+| Backend | Supabase Edge Function `invest` (TypeScript / Deno) |
+| Base de datos | PostgreSQL de Supabase, esquema privado `invest` |
+| Inicio de sesión | Supabase Auth |
 | Broker | Alpaca (acciones, ETF, cripto) |
-| CI/CD | GitHub Actions + GitHub Packages (Docker) |
+| CI/CD | GitHub Actions |
 
-## Funciones
+## Cómo está protegida
 
-- Resumen del portafolio: valor total, efectivo, poder de compra, variación del día y gráfica histórica.
-- Cotizaciones y gráfica de precios (1M a 5A) para acciones, ETF y cripto (`BTC/USD`, `ETH/USD`…).
-- Lista de seguimiento guardada en PostgreSQL.
-- Órdenes a mercado (por monto en USD o cantidad, con fracciones) y órdenes límite.
-- Posiciones con ganancia/pérdida y órdenes recientes con opción de cancelar.
-- Modo **simulado (paper)** y modo **dinero real (live)** con un solo cambio en `.env`.
+- **Las claves de Alpaca nunca llegan al navegador.** Son secretos de la Edge Function en Supabase.
+- **Esquema privado `invest`**, sin exponer en la API pública de Supabase. Solo la función lo lee y escribe, por conexión directa a la base. Está aislado de las tablas del otro sitio del mismo proyecto.
+- **Lista de usuarios autorizados** (`invest.allowed_users`): aunque alguien tenga cuenta en el proyecto, no puede operar si no está en la lista.
+- **Límites de riesgo en el servidor:** máximo por orden y máximo de compras al día. Por defecto US$50 y US$200.
+- **Confirmación escrita:** en modo real, cada orden exige escribir **CONFIRMAR**.
+- **Origen restringido (CORS):** la función solo responde a la página oficial y a `localhost` para desarrollo.
+- **Auditoría:** cada orden queda en `invest.order_log`, incluidas las rechazadas.
 
-## Seguridad
+## Configuración (una sola vez)
 
-- Las claves de Alpaca **solo viven en el servidor**; el navegador nunca las ve.
-- Sin registro público: los usuarios se crean por consola.
-- Contraseñas con `scrypt`, sesión en cookie `HttpOnly` + `SameSite=Strict`, defensa CSRF por encabezado y bloqueo tras 5 intentos fallidos.
-- Límites de riesgo aplicados en el backend: máximo por orden (`MAX_ORDER_USD`), máximo de compras diarias (`MAX_DAILY_USD`) e interruptor general (`TRADING_ENABLED`).
-- En modo real, cada orden exige escribir **CONFIRMAR**.
-- Cada orden queda registrada en la tabla `order_log` para auditoría.
+### 1. Secretos de la función en Supabase
 
-## Puesta en marcha (Docker, recomendado)
+En Supabase → *Edge Functions → Secrets* del proyecto, crea:
 
-```bash
-git clone https://github.com/ORION-NOVA-Technologies-S-A-S/orion-invest.git
-cd orion-invest
-cp .env.example .env          # llena SECRET_KEY, POSTGRES_PASSWORD y claves de Alpaca
-docker compose up -d --build
-docker compose exec backend python -m app.create_user tu@correo.com
+| Secreto | Valor |
+|---|---|
+| `ALPACA_KEY_ID` | Tu Key ID de Alpaca |
+| `ALPACA_SECRET_KEY` | Tu Secret Key de Alpaca |
+| `ALPACA_ENV` | `paper` (simulado) o `live` (dinero real) |
+| `MAX_ORDER_USD` | Opcional. Máximo por orden (por defecto 50) |
+| `MAX_DAILY_USD` | Opcional. Máximo de compras al día (por defecto 200) |
+| `TRADING_ENABLED` | Opcional. `false` apaga todas las operaciones |
+
+Las claves Paper y Live son distintas en Alpaca: usa las que correspondan al `ALPACA_ENV`.
+
+### 2. Autorizar tu cuenta
+
+Crea tu usuario en Supabase → *Authentication → Users → Add user* (marca *Auto Confirm*). Luego, en el *SQL Editor*:
+
+```sql
+insert into invest.allowed_users (user_id, note)
+select id, 'Carlos' from auth.users where email = 'TU_CORREO';
 ```
 
-Abre <http://localhost:8080>.
+### 3. Activar GitHub Pages
 
-## Desarrollo local (sin Docker)
+En GitHub → *Settings → Pages → Build and deployment → Source*, elige **GitHub Actions**.
 
-```bash
-# Backend
-cd backend
-python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -r requirements-dev.txt
-# exporta las variables de .env (incluye DATABASE_URL apuntando a tu PostgreSQL)
-python -m app.create_user tu@correo.com
-uvicorn app.main:app --reload
+### 4. (Opcional) Despliegue automático de la función
 
-# Frontend (otra terminal)
-cd frontend
-npm install
-npm run dev        # http://localhost:5173
-```
-
-Documentación de la API: <http://localhost:8000/api/docs>
-
-## Pasar de simulado a dinero real
-
-1. Abre tu cuenta en Alpaca y completa la verificación de identidad.
-2. Prueba primero con las claves **Paper** (`ALPACA_ENV=paper`).
-3. Cuando estés listo, genera las claves **Live**, ponlas en `.env` y cambia `ALPACA_ENV=live`.
-4. Ajusta `MAX_ORDER_USD` y `MAX_DAILY_USD` a lo que estés dispuesto a mover.
-5. Reinicia el backend: `docker compose up -d backend`.
-
-> Invertir implica riesgo de pérdida. Alpaca opera mercados de EE. UU.; los impuestos sobre ganancias y dividendos en el exterior se declaran en Colombia.
+Crea un token en Supabase → *Account → Access Tokens* y guárdalo en GitHub → *Settings → Secrets and variables → Actions* como `SUPABASE_ACCESS_TOKEN`.
 
 ## CI/CD
 
-El flujo `.github/workflows/ci-cd.yml` corre en cada push y pull request a `main`:
+`.github/workflows/ci-cd.yml` corre en cada push y pull request a `main`:
 
 | Etapa | Qué hace |
 |---|---|
-| Backend | `ruff` (estilo + reglas de seguridad), `pytest` contra PostgreSQL real, `pip-audit` |
-| Frontend | `npm run build` y `npm audit` |
-| Secretos | `gitleaks` revisa que no se haya subido ninguna clave |
-| Publicar | Si todo pasa en `main`, construye y publica las imágenes Docker en GitHub Packages (`ghcr.io`) |
-| Desplegar | Opcional: actualiza tu servidor por SSH |
+| Frontend | Compila React y audita dependencias |
+| Edge Function | Revisa tipos con Deno y corre las pruebas de las reglas de riesgo |
+| Secretos | `gitleaks` verifica que no se haya subido ninguna clave |
+| Publicar web | Si todo pasa en `main`, publica en GitHub Pages |
+| Desplegar función | Si existe `SUPABASE_ACCESS_TOKEN`, despliega la función `invest` en Supabase |
 
-### Activar el despliegue automático
+## Desarrollo local
 
-En GitHub → *Settings → Secrets and variables → Actions*, crea:
+```bash
+cd frontend
+npm install
+npm run dev     # http://localhost:5173
+```
 
-- `DEPLOY_HOST`: IP o dominio del servidor
-- `DEPLOY_USER`: usuario SSH
-- `DEPLOY_SSH_KEY`: llave privada SSH
-- `DEPLOY_PATH`: carpeta donde clonaste el repo en el servidor (con su `.env`)
+La web local usa la misma función de Supabase (que permite `localhost:5173`).
 
-En el servidor, inicia sesión una vez en el registro para poder descargar las imágenes privadas:
-`docker login ghcr.io -u TU_USUARIO` (con un token de GitHub con permiso `read:packages`).
+## Pasar a dinero real
 
-Sin esos secretos, el despliegue se omite y el resto del flujo sigue funcionando.
+1. Prueba con claves **Paper** y `ALPACA_ENV=paper`.
+2. Confirma con Alpaca que tu cuenta desde Colombia puede operar acciones y ETF (cripto sí aparece habilitado para Colombia).
+3. Cambia a las claves **Live** y `ALPACA_ENV=live`.
+4. Sube `MAX_ORDER_USD` y `MAX_DAILY_USD` poco a poco.
+
+> Invertir implica riesgo de pérdida. Alpaca opera mercados de EE. UU.; las ganancias y dividendos en el exterior se declaran en Colombia.
 
 ## Estructura
 
 ```
-backend/
-  app/
-    main.py            # FastAPI, CORS, CSRF, encabezados de seguridad
-    config.py          # variables de entorno
-    db.py, models.py   # PostgreSQL (users, watchlist, order_log)
-    security.py        # contraseñas, sesión, anti fuerza bruta
-    risk.py            # límites por orden y diarios
-    broker/alpaca.py   # cliente de Alpaca
-    routers/           # auth, market, trading
-    create_user.py
-  tests/
-frontend/
-  src/components/      # Dashboard, QuotePanel, OrderForm, Watchlist, Positions, Orders, LineChart
-docker-compose.yml
+frontend/                       # React + Vite
+  src/components/               # Dashboard, QuotePanel, OrderForm, Watchlist, Positions, Orders, LineChart
+supabase/
+  functions/invest/             # Edge Function: index.ts, alpaca.ts, risk.ts (+ pruebas)
+  migrations/                   # Esquema privado invest
 .github/workflows/ci-cd.yml
 ```
 
