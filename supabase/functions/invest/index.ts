@@ -246,7 +246,28 @@ async function route(req: Request, userId: string): Promise<unknown> {
     }
   }
 
+  if (resource === "fx" && m === "GET") return await usdCop();
+
   throw new HttpError(404, "Ruta no encontrada.");
+}
+
+// Tasa USD/COP de referencia (no requiere claves). Se guarda 1 hora en memoria.
+let fxCache: { rate: number; updated: string; at: number } | null = null;
+
+async function usdCop() {
+  if (!fxCache || Date.now() - fxCache.at > 3600_000) {
+    try {
+      const r = await fetch("https://open.er-api.com/v6/latest/USD", { signal: AbortSignal.timeout(8000) });
+      const d: Any = await r.json();
+      const rate = Number(d?.rates?.COP);
+      if (!(rate > 0)) throw new Error("tasa inválida");
+      fxCache = { rate, updated: d?.time_last_update_utc ?? new Date().toISOString(), at: Date.now() };
+    } catch {
+      if (!fxCache) throw new HttpError(502, "No se pudo obtener la tasa USD/COP.");
+    }
+  }
+  const c = fxCache!;
+  return { usd_cop: c.rate, updated: c.updated, source: "open.er-api.com" };
 }
 
 Deno.serve(async (req) => {

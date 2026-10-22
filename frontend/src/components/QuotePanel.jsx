@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, pct, usd } from "../api.js";
+import { api, cop, pct, usd } from "../api.js";
 import LineChart from "./LineChart.jsx";
 import OrderForm from "./OrderForm.jsx";
 
@@ -11,7 +11,7 @@ const RANGES = [
   { label: "5A", days: 1825 },
 ];
 
-export default function QuotePanel({ symbol, me, onOrderPlaced }) {
+export default function QuotePanel({ symbol, me, rate, onOrderPlaced }) {
   const [quote, setQuote] = useState(null);
   const [info, setInfo] = useState(null);
   const [bars, setBars] = useState([]);
@@ -44,6 +44,7 @@ export default function QuotePanel({ symbol, me, onOrderPlaced }) {
         </div>
         <div className="right">
           <div className="price mono">{usd(quote?.price, digits)}</div>
+          <div className="mono muted small">≈ {cop(quote?.price, rate)}</div>
           <div className={`mono ${quote?.change >= 0 ? "up" : "down"}`}>
             {quote?.change != null && `${quote.change >= 0 ? "+" : ""}${quote.change.toFixed(digits)}`} {pct(quote?.change_pct)}
           </div>
@@ -75,7 +76,7 @@ export default function QuotePanel({ symbol, me, onOrderPlaced }) {
         </div>
       </div>
       {info && info.tradable === false && <p className="error">Este activo no se puede operar en Alpaca.</p>}
-      <OrderForm symbol={symbol} quote={quote} info={info} me={me} onPlaced={onOrderPlaced} />
+      <OrderForm symbol={symbol} quote={quote} info={info} me={me} rate={rate} onPlaced={onOrderPlaced} />
     </section>
   );
 }

@@ -1,6 +1,6 @@
-import { num, pct, usd } from "../api.js";
+import { cop, num, pct, usd } from "../api.js";
 
-export default function Positions({ positions, onSelect }) {
+export default function Positions({ positions, rate, onSelect }) {
   return (
     <section className="card">
       <h2>Mis posiciones</h2>
@@ -24,7 +24,11 @@ export default function Positions({ positions, onSelect }) {
                   <td className="sym">{p.symbol}</td>
                   <td className="mono">{num(p.qty)}</td>
                   <td className="mono">{usd(p.avg_entry_price)}</td>
-                  <td className="mono">{usd(p.market_value)}</td>
+                  <td className="mono">
+                    {usd(p.market_value)}
+                    <br />
+                    <small className="muted">{cop(p.market_value, rate)}</small>
+                  </td>
                   <td className={`mono ${p.unrealized_pl >= 0 ? "up" : "down"}`}>
                     {usd(p.unrealized_pl)}
                     <br />

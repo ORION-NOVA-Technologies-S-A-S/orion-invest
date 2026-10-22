@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, pct, usd } from "../api.js";
+import { api, cop, pct, usd } from "../api.js";
 import LineChart from "./LineChart.jsx";
 import Orders from "./Orders.jsx";
 import Positions from "./Positions.jsx";
@@ -17,6 +17,15 @@ export default function Dashboard({ me, onLogout }) {
   const [period, setPeriod] = useState("1M");
   const [selected, setSelected] = useState("VOO");
   const [error, setError] = useState("");
+  const [fx, setFx] = useState(null); // { usd_cop, updated }
+
+  useEffect(() => {
+    const load = () => api.fx().then(setFx).catch(() => {});
+    load();
+    const id = setInterval(load, 3600000);
+    return () => clearInterval(id);
+  }, []);
+  const rate = fx?.usd_cop;
 
   const refresh = useCallback(async () => {
     try {
@@ -62,9 +71,15 @@ export default function Dashboard({ me, onLogout }) {
       <section className="card summary">
         <span className="muted">Valor total del portafolio</span>
         <div className="big mono">{usd(account?.equity)}</div>
+        <div className="mono muted">≈ {cop(account?.equity, rate)}</div>
         <div className={`mono ${account?.day_change >= 0 ? "up" : "down"}`}>
-          {usd(account?.day_change)} ({pct(account?.day_change_pct)}) hoy
+          {usd(account?.day_change)} ({pct(account?.day_change_pct)}) hoy · {cop(account?.day_change, rate)}
         </div>
+        <p className="muted small">
+          {rate
+            ? `Tasa de referencia: 1 USD = ${cop(1, rate)} · ${new Date(fx.updated).toLocaleDateString("es-CO")}`
+            : "Cargando tasa USD/COP…"}
+        </p>
         <div className="tabs">
           {PERIODS.map((p) => (
             <button key={p} className={period === p ? "on" : ""} onClick={() => setPeriod(p)}>
@@ -77,10 +92,12 @@ export default function Dashboard({ me, onLogout }) {
           <div>
             <span className="muted">Efectivo</span>
             <span className="mono">{usd(account?.cash)}</span>
+            <span className="mono muted small">{cop(account?.cash, rate)}</span>
           </div>
           <div>
             <span className="muted">Poder de compra</span>
             <span className="mono">{usd(account?.buying_power)}</span>
+            <span className="mono muted small">{cop(account?.buying_power, rate)}</span>
           </div>
           <div>
             <span className="muted">Comprado hoy</span>
@@ -96,8 +113,8 @@ export default function Dashboard({ me, onLogout }) {
 
       <div className="grid">
         <div className="col">
-          <QuotePanel symbol={selected} me={me} onOrderPlaced={refresh} />
-          <Positions positions={positions} onSelect={setSelected} />
+          <QuotePanel symbol={selected} me={me} rate={rate} onOrderPlaced={refresh} />
+          <Positions positions={positions} rate={rate} onSelect={setSelected} />
         </div>
         <div className="col">
           <Watchlist selected={selected} onSelect={setSelected} />

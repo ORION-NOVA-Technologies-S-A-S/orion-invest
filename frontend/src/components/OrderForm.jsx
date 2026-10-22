@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { api, num, usd } from "../api.js";
+import { api, cop, num, usd } from "../api.js";
 
-export default function OrderForm({ symbol, quote, info, me, onPlaced }) {
+export default function OrderForm({ symbol, quote, info, me, rate, onPlaced }) {
   const live = me.environment === "live";
   const [side, setSide] = useState("buy");
   const [orderType, setOrderType] = useState("market");
   const [mode, setMode] = useState("notional");
+  const [currency, setCurrency] = useState("COP"); // moneda en que escribes el monto
   const [amount, setAmount] = useState("");
   const [limitPrice, setLimitPrice] = useState("");
   const [review, setReview] = useState(false);
@@ -14,16 +15,23 @@ export default function OrderForm({ symbol, quote, info, me, onPlaced }) {
   const [msg, setMsg] = useState(null);
 
   const effectiveMode = orderType === "limit" ? "qty" : mode;
+  const inCop = effectiveMode === "notional" && currency === "COP";
   const fractionable = info?.fractionable !== false;
   const amt = parseFloat(amount);
   const price = orderType === "limit" ? parseFloat(limitPrice) : quote?.price;
-  const estimate = effectiveMode === "notional" ? amt : amt * price;
+
+  // Todo se envía a Alpaca en dólares; si escribes en pesos se convierte con la tasa del día
+  const amountUsd = inCop ? (rate ? amt / rate : NaN) : amt;
+  const estimate = effectiveMode === "notional" ? amountUsd : amt * price;
   const disabled = !me.trading_enabled || info?.tradable === false;
 
   function openReview(e) {
     e.preventDefault();
     setMsg(null);
     if (!(amt > 0)) return setMsg({ error: "Escribe un monto mayor que cero." });
+    if (inCop && !rate) return setMsg({ error: "Aún no hay tasa USD/COP. Intenta en unos segundos o usa USD." });
+    if (effectiveMode === "notional" && amountUsd < 1)
+      return setMsg({ error: `El mínimo por orden es US$1 (${cop(1, rate)}).` });
     if (orderType === "limit" && !(parseFloat(limitPrice) > 0)) return setMsg({ error: "Escribe el precio límite." });
     if (effectiveMode === "notional" && !fractionable && !symbol.includes("/"))
       return setMsg({ error: "Este activo no admite fracciones: opera por cantidad." });
@@ -39,11 +47,13 @@ export default function OrderForm({ symbol, quote, info, me, onPlaced }) {
         side,
         order_type: orderType,
         amount_mode: effectiveMode,
-        amount: amt,
+        amount: effectiveMode === "notional" ? Math.floor(amountUsd * 100) / 100 : amt,
         limit_price: orderType === "limit" ? parseFloat(limitPrice) : null,
         confirm: true,
       });
-      setMsg({ ok: `Orden enviada (${res.status}). Valor estimado ${usd(res.estimated_usd)}.` });
+      setMsg({
+        ok: `Orden enviada (${res.status}). Valor estimado ${usd(res.estimated_usd)} ≈ ${cop(res.estimated_usd, rate)}.`,
+      });
       setAmount("");
       setReview(false);
       onPlaced?.();
@@ -77,22 +87,51 @@ export default function OrderForm({ symbol, quote, info, me, onPlaced }) {
         <label>
           Por
           <select value={effectiveMode} onChange={(e) => setMode(e.target.value)} disabled={orderType === "limit"}>
-            <option value="notional">Monto en USD</option>
+            <option value="notional">Monto en dinero</option>
             <option value="qty">Cantidad</option>
           </select>
         </label>
-        <label>
-          {effectiveMode === "notional" ? "Monto (USD)" : "Cantidad"}
-          <input type="number" inputMode="decimal" step="any" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} />
+
+        {effectiveMode === "notional" && (
+          <div className="seg full currency">
+            <button type="button" className={currency === "COP" ? "on" : ""} onClick={() => setCurrency("COP")}>
+              Pesos (COP)
+            </button>
+            <button type="button" className={currency === "USD" ? "on" : ""} onClick={() => setCurrency("USD")}>
+              Dólares (USD)
+            </button>
+          </div>
+        )}
+
+        <label className={orderType === "limit" ? "" : "full"}>
+          {effectiveMode === "qty" ? "Cantidad" : inCop ? "Monto (COP)" : "Monto (USD)"}
+          <input
+            type="number"
+            inputMode="decimal"
+            step="any"
+            min="0"
+            placeholder={inCop ? "Ej: 100000" : effectiveMode === "qty" ? "Ej: 1" : "Ej: 25"}
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+          />
         </label>
         {orderType === "limit" && (
           <label>
             Precio límite (USD)
-            <input type="number" inputMode="decimal" step="any" min="0" value={limitPrice} onChange={(e) => setLimitPrice(e.target.value)} />
+            <input
+              type="number"
+              inputMode="decimal"
+              step="any"
+              min="0"
+              value={limitPrice}
+              onChange={(e) => setLimitPrice(e.target.value)}
+            />
           </label>
         )}
         <p className="muted small full">
-          Estimado: <strong>{usd(estimate)}</strong> · Máx. por orden {usd(me.max_order_usd, 0)}
+          Estimado: <strong>{usd(estimate)}</strong> ≈ <strong>{cop(estimate, rate)}</strong>
+          <br />
+          Máx. por orden {usd(me.max_order_usd, 0)} ≈ {cop(me.max_order_usd, rate)}
         </p>
         <button className={`btn full ${side === "buy" ? "buy" : "sell"}`} disabled={disabled}>
           Revisar {side === "buy" ? "compra" : "venta"}
@@ -110,14 +149,35 @@ export default function OrderForm({ symbol, quote, info, me, onPlaced }) {
             <p className={`badge ${live ? "live" : "paper"}`}>{live ? "DINERO REAL" : "Simulado (paper)"}</p>
             <dl>
               <dt>Operación</dt>
-              <dd>{side === "buy" ? "Comprar" : "Vender"} {symbol}</dd>
+              <dd>
+                {side === "buy" ? "Comprar" : "Vender"} {symbol}
+              </dd>
               <dt>Tipo</dt>
               <dd>{orderType === "market" ? "A mercado" : `Límite a ${usd(parseFloat(limitPrice), 4)}`}</dd>
-              <dt>{effectiveMode === "notional" ? "Monto" : "Cantidad"}</dt>
-              <dd>{effectiveMode === "notional" ? usd(amt) : num(amt)}</dd>
+              {effectiveMode === "qty" ? (
+                <>
+                  <dt>Cantidad</dt>
+                  <dd>{num(amt)}</dd>
+                </>
+              ) : (
+                <>
+                  <dt>Monto</dt>
+                  <dd>{inCop ? `${cop(amountUsd, rate)} → ${usd(amountUsd)}` : usd(amountUsd)}</dd>
+                </>
+              )}
               <dt>Valor estimado</dt>
-              <dd>{usd(estimate)}</dd>
+              <dd>
+                {usd(estimate)}
+                <br />
+                <small className="muted">≈ {cop(estimate, rate)}</small>
+              </dd>
             </dl>
+            {inCop && (
+              <p className="muted small">
+                Alpaca opera en dólares. Se enviarán {usd(Math.floor(amountUsd * 100) / 100)} usando la tasa de
+                referencia 1 USD = {cop(1, rate)}; tu banco puede usar una tasa distinta al depositar.
+              </p>
+            )}
             {live && (
               <label>
                 Escribe <strong>CONFIRMAR</strong> para enviar con dinero real

@@ -64,7 +64,16 @@ export const api = {
   watchlist: () => request("GET", "/watchlist"),
   addWatch: (symbol) => request("POST", `/watchlist?symbol=${q(symbol)}`),
   removeWatch: (symbol) => request("DELETE", `/watchlist?symbol=${q(symbol)}`),
+  fx: () => request("GET", "/fx"),
 };
+
+// Pesos colombianos sin decimales. rate = cuántos COP vale 1 USD.
+export const cop = (usdValue, rate) =>
+  usdValue == null || !rate || Number.isNaN(usdValue)
+    ? "—"
+    : new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(
+        usdValue * rate
+      );
 
 export const usd = (n, digits = 2) =>
   n == null || Number.isNaN(n)
