@@ -298,3 +298,19 @@ tbody tr:hover { background: var(--panel-2); }
 .nova-suggest .chip-btn { text-align: left; }
 .nova-input { display: flex; gap: 8px; align-items: flex-end; position: sticky; bottom: 8px; background: var(--panel); padding-top: 4px; }
 .nova-input textarea { flex: 1; resize: none; min-height: 44px; max-height: 140px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; font: inherit; color: inherit; }
+
+/* Cerebro de NOVA */
+.brain { background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.brain p { margin: 0; }
+.brain-head { display: flex; justify-content: space-between; align-items: center; background: none; border: none; color: inherit; padding: 0; cursor: pointer; text-align: left; gap: 8px; }
+.brain-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.brain-kpis > div { display: flex; flex-direction: column; gap: 2px; background: var(--panel); border-radius: 10px; padding: 8px; }
+.curve { display: flex; flex-direction: column; gap: 6px; }
+.curve-row { display: grid; grid-template-columns: 62px 1fr 56px 56px; gap: 8px; align-items: center; }
+.curve-track { height: 8px; background: var(--panel); border-radius: 999px; overflow: hidden; }
+.curve-track span { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), var(--up)); border-radius: 999px; }
+.brain-today { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.brain-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.brain-bar { height: 6px; background: var(--panel); border-radius: 999px; overflow: hidden; }
+.brain-bar.loading span { display: block; width: 40%; height: 100%; background: var(--accent); border-radius: 999px; animation: slide 1.4s infinite ease-in-out; }
+@keyframes slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(260%); } }

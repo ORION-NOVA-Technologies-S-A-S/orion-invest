@@ -53,7 +53,7 @@ jobs:
       - name: Revisión de tipos
         run: deno check index.ts
       - name: Pruebas de reglas de riesgo
-        run: deno test risk_test.ts
+        run: deno test risk_test.ts brain_test.ts
 
   # ---------------- CI: Búsqueda de secretos ----------------
   secrets-scan:

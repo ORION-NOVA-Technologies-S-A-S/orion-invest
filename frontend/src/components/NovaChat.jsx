@@ -4,11 +4,12 @@ import { AssetIcon } from "../icons.jsx";
 
 const STORE = "orion-nova-chat";
 const SUGGESTIONS = [
-  "Analiza mi portafolio y dime cómo mejorarlo",
-  "¿Qué acciones o ETF de dividendos me recomiendas para tener flujo de caja?",
-  "¿Cómo invierto en empresas colombianas desde aquí?",
-  "Arma un plan para invertir cada mes según mi perfil",
-  "Explícame qué es un ETF y por qué diversificar",
+  "Analiza mi portafolio",
+  "¿Qué me recomiendas comprar?",
+  "Dividendos para flujo de caja",
+  "¿Cómo invierto en Colombia?",
+  "Explícame Apple",
+  "¿Cómo aprendiste?",
 ];
 const GOALS = { dividendos: "Dividendos (flujo de caja)", crecimiento: "Crecimiento", equilibrio: "Equilibrio", preservar: "Preservar capital" };
 const HORIZONS = { corto: "Corto (< 2 años)", medio: "Medio (2-5 años)", largo: "Largo (5+ años)" };
@@ -31,10 +32,11 @@ const save = (msgs) => {
 
 // Texto de NOVA → párrafos, viñetas, **negritas** y botones [[SÍMBOLO]] (sin HTML crudo)
 function inline(text, onOpen, keyBase) {
-  const parts = text.split(/(\*\*[^*]+\*\*|\[\[[A-Z0-9./]{1,12}\]\])/g);
+  const parts = text.split(/(\*\*[^*]+\*\*|\[\[[A-Z0-9./]{1,12}\]\]|_[^_]+_)/g);
   return parts.map((p, i) => {
     const k = `${keyBase}-${i}`;
     if (/^\*\*[^*]+\*\*$/.test(p)) return <strong key={k}>{p.slice(2, -2)}</strong>;
+    if (/^_[^_]+_$/.test(p)) return <em key={k} className="muted">{p.slice(1, -1)}</em>;
     const m = p.match(/^\[\[([A-Z0-9./]{1,12})\]\]$/);
     if (m)
       return (
@@ -163,18 +165,124 @@ function Profile({ profile, onSaved }) {
   );
 }
 
+function BrainPanel({ brain, training, onTrain, onOpen }) {
+  const [open, setOpen] = useState(false);
+  if (!brain)
+    return (
+      <div className="brain">
+        <p className="small">
+          🧠 <strong>NOVA está estudiando el mercado</strong> por primera vez: practica miles de decisiones con la historia real
+          de {"~"}40 activos. Tarda unos segundos…
+        </p>
+        <div className="brain-bar loading">
+          <span />
+        </div>
+      </div>
+    );
+  const first = brain.curva[0];
+  const last = brain.curva[brain.curva.length - 1];
+  const max = Math.max(...brain.curva.map((c) => c.acierto_pct), 60);
+  return (
+    <div className="brain">
+      <button className="brain-head" onClick={() => setOpen((o) => !o)}>
+        <span>
+          🧠 <strong>Lo que aprendió NOVA</strong>
+          <span className="muted small"> · {brain.muestras.toLocaleString("es-CO")} decisiones practicadas</span>
+        </span>
+        <span className="muted">{open ? "▲" : "▼"}</span>
+      </button>
+      <div className="brain-kpis">
+        <div>
+          <span className="muted small">Acierto al empezar</span>
+          <strong className="mono">{first.acierto_pct.toFixed(1)} %</strong>
+        </div>
+        <div>
+          <span className="muted small">Tras practicar</span>
+          <strong className="mono up">{last.acierto_pct.toFixed(1)} %</strong>
+        </div>
+        <div>
+          <span className="muted small">Examen (datos nuevos)</span>
+          <strong className="mono">{brain.examen.acierto_pct.toFixed(1)} %</strong>
+        </div>
+      </div>
+      {open && (
+        <>
+          <p className="muted small">Cómo mejoró en cada vuelta de práctica (prueba y error):</p>
+          <div className="curve">
+            {brain.curva.map((c) => (
+              <div key={c.vuelta} className="curve-row">
+                <span className="small">Vuelta {c.vuelta}</span>
+                <span className="curve-track">
+                  <span style={{ width: `${(c.acierto_pct / max) * 100}%` }} />
+                </span>
+                <span className="mono small">{c.acierto_pct.toFixed(1)} %</span>
+                <span className="muted small">azar {c.exploracion_pct} %</span>
+              </div>
+            ))}
+          </div>
+          <p className="muted small">
+            Examen con {brain.examen.muestras} decisiones desde {brain.examen.desde} que no vio al practicar: siguiéndola se
+            ganaba {brain.examen.ganancia_nova_pct} % por decisión, contra {brain.examen.ganancia_siempre_comprar_pct} % de
+            comprar siempre.
+          </p>
+          <p className="muted small">
+            Récord en vivo:{" "}
+            {brain.record.total
+              ? `${brain.record.aciertos} aciertos de ${brain.record.total} predicciones revisadas`
+              : "aún sin resultados (revisa sus predicciones a los 20 días hábiles)"}{" "}
+            · {brain.record.pendientes} esperando.
+          </p>
+        </>
+      )}
+      {brain.hoy?.length > 0 && (
+        <div className="brain-today">
+          <span className="muted small">Hoy ve favorable:</span>
+          {brain.hoy.map((h) => (
+            <button key={h.symbol} className="nova-sym" onClick={() => onOpen(h.symbol)}>
+              <AssetIcon symbol={h.symbol} size="sm" /> {h.symbol}
+            </button>
+          ))}
+        </div>
+      )}
+      <div className="brain-foot">
+        <span className="muted small">
+          Estudió: {new Date(brain.trained_at).toLocaleString("es-CO", { timeZone: "America/Bogota" })}
+        </span>
+        <button className="link small" onClick={onTrain} disabled={training}>
+          {training ? "Estudiando…" : "🔄 Volver a estudiar"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function NovaChat({ me, onOpenAsset }) {
   const [msgs, setMsgs] = useState(load);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [profile, setProfile] = useState(undefined);
-  const [remaining, setRemaining] = useState(null);
+  const [brain, setBrain] = useState(null);
+  const [training, setTraining] = useState(false);
   const end = useRef(null);
 
+  const loadBrain = () => api.novaBrain().then(setBrain).catch((e) => setError(e.message));
   useEffect(() => {
     api.novaProfile().then(setProfile).catch(() => setProfile(null));
+    loadBrain();
   }, []);
+
+  async function retrain() {
+    setTraining(true);
+    setError("");
+    try {
+      setBrain(await api.novaTrain());
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setTraining(false);
+    }
+  }
 
   useEffect(() => {
     save(msgs);
@@ -190,9 +298,8 @@ export default function NovaChat({ me, onOpenAsset }) {
     setMsgs(next);
     setBusy(true);
     try {
-      const res = await api.nova(next.map(({ role, content }) => ({ role, content })));
+      const res = await api.nova(content);
       setMsgs([...next, { role: "assistant", content: res.reply }]);
-      setRemaining(res.remaining);
     } catch (e) {
       setError(e.message);
       setMsgs(next);
@@ -209,7 +316,7 @@ export default function NovaChat({ me, onOpenAsset }) {
         </div>
         <div>
           <h2>NOVA</h2>
-          <p className="muted small">Tu analista de inversiones con IA · Orion Nova Technologies</p>
+          <p className="muted small">Aprende sola del mercado por prueba y error · Orion Nova Technologies</p>
         </div>
         {msgs.length > 0 && (
           <button className="link small nova-new" onClick={() => setMsgs([])}>
@@ -218,14 +325,24 @@ export default function NovaChat({ me, onOpenAsset }) {
         )}
       </div>
 
-      {profile !== undefined && <Profile profile={profile} onSaved={setProfile} />}
+      <BrainPanel brain={brain} training={training} onTrain={retrain} onOpen={onOpenAsset} />
+
+      {profile !== undefined && (
+        <Profile
+          profile={profile}
+          onSaved={(p) => {
+            setProfile(p);
+            loadBrain();
+          }}
+        />
+      )}
 
       <div className="nova-msgs">
         {msgs.length === 0 && (
           <div className="nova-bubble assistant">
             <p>
-              ¡Hola! Soy <strong>NOVA</strong> 👋. Reviso tu portafolio y el mercado en vivo para ayudarte a invertir con buen
-              flujo de caja, en Colombia y en el exterior. ¿Por dónde empezamos?
+              ¡Hola! Soy <strong>NOVA</strong> 👋. Aprendí del mercado yo sola, por prueba y error, y con eso reviso tu
+              portafolio para ayudarte a invertir con buen flujo de caja, en Colombia y en el exterior. ¿Por dónde empezamos?
             </p>
           </div>
         )}
@@ -236,7 +353,7 @@ export default function NovaChat({ me, onOpenAsset }) {
         ))}
         {busy && (
           <div className="nova-bubble assistant typing">
-            <span>NOVA está analizando el mercado</span>
+            <span>NOVA está pensando</span>
             <span className="dots">
               <i />
               <i />
@@ -284,8 +401,8 @@ export default function NovaChat({ me, onOpenAsset }) {
         </button>
       </form>
       <p className="muted small">
-        NOVA analiza y sugiere, pero no compra por ti{me.environment === "live" ? " (estás en tu cuenta REAL)" : ""}. Invertir
-        tiene riesgo.{remaining != null && ` · Te quedan ${remaining} mensajes hoy.`}
+        NOVA aconseja con lo que aprendió de la historia, pero no compra por ti
+        {me.environment === "live" ? " (estás en tu cuenta REAL)" : ""}. El pasado no garantiza el futuro.
       </p>
     </section>
   );

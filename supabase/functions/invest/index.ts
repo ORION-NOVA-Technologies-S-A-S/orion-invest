@@ -5,8 +5,9 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import postgres from "npm:postgres@3.4.5";
-import { alpacaFor, availableModes, type Mode, secret, setVaultLoader } from "./alpaca.ts";
-import { askNova, parseMessages } from "./nova.ts";
+import { alpacaFor, availableModes, type Mode, setVaultLoader } from "./alpaca.ts";
+import { type Brain, HORIZON, type Series, type Signal, signalsToday, train, UNIVERSE } from "./brain.ts";
+import { brainSummary, type ChatContext, reply } from "./chat.ts";
 import { buildAlpacaOrder, checkOrder, cleanSymbol, HttpError, parseOrder, type RiskConfig } from "./risk.ts";
 import { indexQuotes, yahooBars, yahooSnapshot, yahooSnapshots } from "./yahoo.ts";
 
@@ -46,7 +47,7 @@ const sql = postgres(env("SUPABASE_DB_URL"), { prepare: false, max: 3, idle_time
 // Claves de Alpaca guardadas cifradas en Supabase Vault (respaldo si no hay secretos de la función)
 setVaultLoader(async () => {
   const rows = await sql`select name, decrypted_secret from vault.decrypted_secrets
-                         where name in ('alpaca_key_id', 'alpaca_secret_key', 'alpaca_live_key_id', 'alpaca_live_secret_key', 'anthropic_api_key')`;
+                         where name in ('alpaca_key_id', 'alpaca_secret_key', 'alpaca_live_key_id', 'alpaca_live_secret_key')`;
   return Object.fromEntries(rows.map((r) => [r.name, r.decrypted_secret ?? ""]));
 });
 
@@ -324,18 +325,33 @@ async function route(req: Request, userId: string): Promise<unknown> {
     }
   }
 
-  if (resource === "nova" && !rest[0] && m === "POST") {
-    const messages = parseMessages(await req.json().catch(() => null));
+  // Cerebro de NOVA: lo que aprendió (se reentrena solo si tiene más de 20 horas)
+  if (resource === "nova" && rest[0] === "brain" && m === "GET") {
+    const { brain, signals } = await ensureBrain(alpaca, false);
+    return brainSummary(brain, signals, { profile: await novaProfile(userId), record: await novaRecord() });
+  }
 
-    // Límite diario de mensajes (controla el costo de la IA)
-    const limit = num("NOVA_DAILY_LIMIT", 60);
+  // Entrenar a NOVA ahora (máximo una vez cada 10 minutos)
+  if (resource === "nova" && rest[0] === "train" && m === "POST") {
+    const [row] = await sql`select trained_at from invest.nova_brain where id = 'mercado'`;
+    if (row && Date.now() - new Date(row.trained_at).getTime() < 10 * 60_000) {
+      throw new HttpError(429, "NOVA acaba de estudiar el mercado. Vuelve a entrenarla en unos minutos.");
+    }
+    const { brain, signals } = await ensureBrain(alpaca, true);
+    return brainSummary(brain, signals, { profile: await novaProfile(userId), record: await novaRecord() });
+  }
+
+  // Conversar con NOVA (sin IA de pago: usa lo que aprendió + tu portafolio + tu perfil)
+  if (resource === "nova" && !rest[0] && m === "POST") {
+    const body: Any = (await req.json().catch(() => null)) ?? {};
+    const message = typeof body.message === "string" ? body.message : "";
+    const limit = num("NOVA_DAILY_LIMIT", 300);
     const [u] = await sql`
       insert into invest.nova_usage (user_id, day, count) values (${userId}, (now() at time zone 'America/Bogota')::date, 1)
       on conflict (user_id, day) do update set count = invest.nova_usage.count + 1
       returning count`;
-    if (u.count > limit) throw new HttpError(429, `Llegaste al límite de ${limit} mensajes con NOVA por hoy. Vuelve mañana.`);
+    if (u.count > limit) throw new HttpError(429, `Llegaste al límite de ${limit} mensajes con NOVA por hoy.`);
 
-    // Contexto real del usuario para que NOVA analice
     const safe = async <T>(fn: () => Promise<T>) => {
       try {
         return await fn();
@@ -343,67 +359,113 @@ async function route(req: Request, userId: string): Promise<unknown> {
         return null;
       }
     };
-    const [acct, pos, ords, wl, prof, fx] = await Promise.all([
+    const [{ brain, signals }, acct, pos, profile, record, fx] = await Promise.all([
+      ensureBrain(alpaca, false),
       safe(() => alpaca.account() as Promise<Any>),
       safe(() => alpaca.positions() as Promise<Any[]>),
-      safe(() => alpaca.orders() as Promise<Any[]>),
-      safe(() => sql`select symbol from invest.watchlist where user_id = ${userId}`),
-      safe(() => sql`select goal, horizon, risk, monthly_cop, notes from invest.nova_profile where user_id = ${userId}`),
+      novaProfile(userId),
+      novaRecord(),
       safe(() => usdCop()),
     ]);
-    const context = {
-      fecha_bogota: new Date().toLocaleString("es-CO", { timeZone: "America/Bogota" }),
-      cuenta: ENV === "live" ? "Cuenta REAL (dinero real)" : "Demo (dinero simulado)",
-      tasa_usd_cop: fx?.usd_cop ?? null,
-      saldo: acct
-        ? { valor_total_usd: f(acct.equity), efectivo_usd: f(acct.cash), poder_de_compra_usd: f(acct.buying_power) }
-        : "no disponible",
-      posiciones: (pos ?? []).map((p: Any) => ({
-        simbolo: p.symbol,
-        tipo: p.asset_class,
-        cantidad: f(p.qty),
-        precio_promedio: f(p.avg_entry_price),
-        valor_usd: f(p.market_value),
-        ganancia_usd: f(p.unrealized_pl),
-        ganancia_pct: Math.round(f(p.unrealized_plpc) * 10000) / 100,
+    const ctx: ChatContext = {
+      name: "",
+      mode: ENV,
+      fx: fx?.usd_cop ?? null,
+      account: acct ? { equity: f(acct.equity), cash: f(acct.cash), buying_power: f(acct.buying_power) } : null,
+      positions: (pos ?? []).map((p: Any) => ({
+        symbol: p.asset_class === "crypto" ? String(p.symbol).replace(/USD$/, "/USD") : p.symbol,
+        asset_class: p.asset_class,
+        market_value: f(p.market_value),
+        unrealized_pl: f(p.unrealized_pl),
+        unrealized_plpc: f(p.unrealized_plpc) * 100,
       })),
-      ordenes_recientes: (ords ?? []).slice(0, 10).map((o: Any) => ({
-        simbolo: o.symbol,
-        lado: o.side,
-        estado: o.status,
-        monto: o.notional ?? o.qty,
-        precio: o.filled_avg_price,
-      })),
-      lista_de_seguimiento: (wl ?? []).map((r: Any) => r.symbol),
-      perfil_inversionista: prof?.[0] ?? "sin definir",
-      limites_app: { max_por_orden_usd: risk.maxOrderUsd, max_compras_dia_usd: risk.maxDailyUsd },
+      profile,
+      record,
     };
-
-    const result = await askNova(messages, {
-      apiKey: await secret("ANTHROPIC_API_KEY", "anthropic_api_key"),
-      context,
-      catalog: NOVA_CATALOG,
-      quotes: async (list) =>
-        await withFallback(() => alpaca.snapshots(list.map(cleanSymbol)), () => yahooSnapshots(list.map(cleanSymbol))),
-      localQuotes: (list) => indexQuotes(list.join(",")),
-      history: async (sym, days) => {
-        const s = cleanSymbol(sym);
-        return (await withFallback(() => alpaca.bars(s, days), () => yahooBars(s, days))) as { t: string; c: number }[];
-      },
-    });
-    return { ...result, remaining: Math.max(limit - u.count, 0) };
+    return { reply: reply(message, brain, signals, ctx) };
   }
 
   throw new HttpError(404, "Ruta no encontrada.");
 }
 
-// Símbolos del menú Mercados (para que NOVA sepa qué ofrece la app)
-const NOVA_CATALOG =
-  "Wall Street: AAPL MSFT NVDA GOOGL META AMZN AVGO AMD ORCL CRM NFLX PLTR BRK.B JPM V MA BAC GS TSLA WMT KO PEP MCD NKE DIS JNJ LLY PFE XOM CVX BA CAT GE. " +
-  "ETF: SPY VOO QQQ DIA IWM VTI VT SCHD VNQ XLK XLE GLD SLV TLT. " +
-  "ETF por país: COLO(Colombia) EWZ(Brasil) EWW(México) ECH(Chile) EPU(Perú) ARGT(Argentina) EWC(Canadá) EWU EWG EWQ EWP EWI EWL EWN EZU VGK EWJ MCHI FXI EWH INDA EWY EWT EWS EWA KSA EIS EZA. " +
-  "ADR latinoamericanos: EC CIB AVAL TGLS PBR VALE ITUB BBD ABEV AMX FMX CX SQM BCH BSAC BAP SCCO BVN MELI YPF GGAL NU. " +
-  "Cripto: BTC/USD ETH/USD SOL/USD XRP/USD LTC/USD DOGE/USD LINK/USD AVAX/USD DOT/USD UNI/USD.";
+// ---------------- Memoria y entrenamiento de NOVA ----------------
+type AlpacaClient = ReturnType<typeof alpacaFor>;
+
+async function novaProfile(userId: string) {
+  const [p] = await sql`select goal, horizon, risk, monthly_cop, notes from invest.nova_profile where user_id = ${userId}`;
+  return p ? { ...p, monthly_cop: p.monthly_cop == null ? undefined : Number(p.monthly_cop) } : null;
+}
+
+async function novaRecord() {
+  const [r] = await sql`
+    select count(*) filter (where resolved_at is not null)::int as total,
+           count(*) filter (where correct)::int as aciertos,
+           count(*) filter (where resolved_at is null)::int as pendientes
+    from invest.nova_predictions`;
+  return { total: r?.total ?? 0, aciertos: r?.aciertos ?? 0, pendientes: r?.pendientes ?? 0 };
+}
+
+// Historia diaria (unos 3 años) de cada activo con el que NOVA practica
+async function loadSeries(alpaca: AlpacaClient): Promise<Series[]> {
+  const out: Series[] = [];
+  const queue = [...UNIVERSE];
+  const worker = async () => {
+    while (queue.length) {
+      const a = queue.shift()!;
+      try {
+        // Alpaca entrega máximo 1000 barras: cripto (365 días/año) pide menos días para no perder lo reciente
+        const days = a.kind === "cripto" ? 950 : 1100;
+        const bars = (await withFallback(() => alpaca.bars(a.symbol, days), () => yahooBars(a.symbol, days))) as Any[];
+        const clean = bars.filter((b) => Number(b.c) > 0);
+        if (clean.length >= 230) {
+          out.push({ symbol: a.symbol, kind: a.kind, dates: clean.map((b) => String(b.t)), closes: clean.map((b) => Number(b.c)) });
+        }
+      } catch (e) {
+        console.error("NOVA no pudo leer", a.symbol, e instanceof Error ? e.message : e);
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: 6 }, worker));
+  return out;
+}
+
+const STALE_MS = 20 * 3600_000;
+
+async function ensureBrain(alpaca: AlpacaClient, force: boolean): Promise<{ brain: Brain; signals: Signal[] }> {
+  const [row] = await sql`select trained_at, data from invest.nova_brain where id = 'mercado'`;
+  if (row && !force && Date.now() - new Date(row.trained_at).getTime() < STALE_MS) {
+    return row.data as { brain: Brain; signals: Signal[] };
+  }
+  const series = await loadSeries(alpaca);
+  if (series.length < 5) {
+    if (row) return row.data as { brain: Brain; signals: Signal[] }; // sin datos nuevos: usa lo último aprendido
+    throw new HttpError(503, "NOVA no pudo leer suficiente historia del mercado. Intenta en unos minutos.");
+  }
+  const brain = train(series);
+  const signals = signalsToday(series, brain);
+
+  // Prueba y error en vivo: revisa las predicciones que ya cumplieron su plazo…
+  const due = await sql`select id, symbol, price from invest.nova_predictions where resolved_at is null and due_on <= current_date`;
+  for (const d of due) {
+    const now = signals.find((s) => s.symbol === d.symbol)?.price;
+    if (!now) continue;
+    const outcome = (now / Number(d.price) - 1) * 100;
+    await sql`update invest.nova_predictions
+              set outcome_pct = ${Math.round(outcome * 100) / 100}, correct = ${outcome > 0}, resolved_at = now()
+              where id = ${d.id}`;
+  }
+  // …y anota las de hoy (las situaciones que cree favorables)
+  for (const s of signals.filter((x) => x.señal === "comprar")) {
+    await sql`insert into invest.nova_predictions (symbol, made_on, price, state, expected_pct, due_on)
+              values (${s.symbol}, current_date, ${s.price}, ${s.state}, ${s.esperado_pct}, current_date + ${Math.round(HORIZON * 1.45)})
+              on conflict (symbol, made_on) do nothing`;
+  }
+
+  const data = { brain, signals };
+  await sql`insert into invest.nova_brain (id, trained_at, data) values ('mercado', now(), ${sql.json(data as Any)})
+            on conflict (id) do update set trained_at = now(), data = excluded.data`;
+  return data;
+}
 
 // Tasa USD/COP de referencia (no requiere claves). Se guarda 1 hora en memoria.
 let fxCache: { rate: number; updated: string; at: number } | null = null;
