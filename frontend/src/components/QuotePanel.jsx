@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api, cop, num, pct, usd } from "../api.js";
 import LineChart from "./LineChart.jsx";
 import OrderForm from "./OrderForm.jsx";
+import { AssetIcon } from "../icons.jsx";
 
 const RANGES = [
   { label: "● En vivo", days: 0 },
@@ -86,9 +87,12 @@ export default function QuotePanel({ symbol, me, rate, orders = [], positions = 
   return (
     <section className="card">
       <div className="quote-head">
-        <div>
-          <h2 className="sym-title">{symbol}</h2>
-          <p className="muted">{info?.name || (symbol.includes("/") ? "Criptomoneda" : "")}</p>
+        <div className="with-ic">
+          <AssetIcon symbol={symbol} name={info?.name} size="lg" />
+          <div>
+            <h2 className="sym-title">{symbol}</h2>
+            <p className="muted">{info?.name || (symbol.includes("/") ? "Criptomoneda" : "")}</p>
+          </div>
         </div>
         <div className="right">
           <div className="price mono">{usd(quote?.price, digits)}</div>

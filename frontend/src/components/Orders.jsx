@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, cop, num, usd } from "../api.js";
+import { AssetIcon } from "../icons.jsx";
 
 const OPEN = ["new", "accepted", "pending_new", "partially_filled", "held"];
 const DONE = ["filled"];
@@ -109,7 +110,8 @@ export default function Orders({ orders, rate, onChange }) {
             return (
               <li key={o.id} className="ord">
                 <div className="ord-top">
-                  <div>
+                  <div className="with-ic">
+                    <AssetIcon symbol={o.symbol} size="sm" />
                     <span className={`side ${o.side}`}>{o.side === "buy" ? "Compra" : "Venta"}</span>
                     <strong className="ord-sym">{o.symbol}</strong>
                   </div>

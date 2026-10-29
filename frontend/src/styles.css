@@ -246,3 +246,11 @@ tbody tr:hover { background: var(--panel-2); }
 .login-card h1 { font-size: 1.3rem; margin: 0; }
 .login-card .brand { margin-bottom: 8px; }
 .foot { text-align: center; margin-top: 16px; }
+
+/* Íconos de cada producto */
+.with-ic { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.asset-ic { flex: 0 0 auto; display: grid; place-items: center; border-radius: 50%; background: var(--panel-2); border: 1px solid var(--line); line-height: 1; }
+.asset-ic.sm { width: 30px; height: 30px; font-size: 0.95rem; }
+.asset-ic.md { width: 38px; height: 38px; font-size: 1.15rem; }
+.asset-ic.lg { width: 48px; height: 48px; font-size: 1.5rem; }
+.ord .asset-ic, .mk-stock .asset-ic { background: var(--panel); }

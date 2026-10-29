@@ -1,4 +1,5 @@
 import { cop, num, pct, usd } from "../api.js";
+import { AssetIcon } from "../icons.jsx";
 
 // Mis posiciones en tarjetas (se leen bien en el celular)
 export default function Positions({ positions, rate, onSelect }) {
@@ -15,9 +16,9 @@ export default function Positions({ positions, rate, onSelect }) {
             return (
               <li key={p.symbol} className="ord pos" onClick={() => onSelect(symbol)}>
                 <div className="ord-top">
-                  <div>
+                  <div className="with-ic">
+                    <AssetIcon symbol={symbol} />
                     <strong className="ord-sym">{symbol}</strong>
-                    {p.asset_class === "crypto" && <span className="tag">cripto</span>}
                   </div>
                   <span className={`mono ${up ? "up" : "down"}`}>
                     {up ? "▲" : "▼"} {pct(p.unrealized_plpc)}

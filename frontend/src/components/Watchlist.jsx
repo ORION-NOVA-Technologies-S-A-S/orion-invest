@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, pct, usd } from "../api.js";
+import { AssetIcon } from "../icons.jsx";
 
 export default function Watchlist({ selected, onSelect }) {
   const [symbols, setSymbols] = useState([]);
@@ -63,9 +64,12 @@ export default function Watchlist({ selected, onSelect }) {
           const qt = quotes[s];
           return (
             <li key={s} className={s === selected ? "active" : ""} onClick={() => onSelect(s)}>
-              <span className="w-sym">
+              <span className="with-ic">
+                <AssetIcon symbol={s} size="sm" />
+                <span className="w-sym">
                 <strong>{s}</strong>
                 <span className="muted small">{s.includes("/") ? "Cripto" : "Acción / ETF"}</span>
+                </span>
               </span>
               <span className="w-price">
                 <span className="mono">{usd(qt?.price, qt?.price < 1 ? 4 : 2)}</span>

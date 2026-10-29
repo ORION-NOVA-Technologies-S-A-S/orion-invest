@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, cop, num, pct, usd } from "../api.js";
 import { CRYPTO, WALL_STREET, WORLD } from "../markets.js";
+import { AssetIcon } from "../icons.jsx";
 
 const TOP_TABS = [
   { id: "ws", label: "🇺🇸 Wall Street" },
@@ -60,9 +61,12 @@ function UsRow({ symbol, name, quote, rate, onSelect }) {
   const d = quote?.price < 1 ? 4 : 2;
   return (
     <li className="mk-row" onClick={() => onSelect(symbol)}>
-      <div>
-        <strong>{symbol}</strong>
-        <div className="muted small">{name}</div>
+      <div className="with-ic">
+        <AssetIcon symbol={symbol} name={name} />
+        <div>
+          <strong>{symbol}</strong>
+          <div className="muted small">{name}</div>
+        </div>
       </div>
       <div className="right">
         <div className="mono">{usd(quote?.price, d)}</div>
@@ -79,9 +83,12 @@ function LocalRow({ stock, local, adrQuote, rate, onSelect }) {
   return (
     <li className="mk-stock">
       <div className="mk-stock-top">
-        <div>
-          <strong>{stock.name}</strong>
-          <div className="muted small">{stock.local ?? "Solo cotiza en EE. UU."}</div>
+        <div className="with-ic">
+          <AssetIcon symbol={stock.adr || stock.local} name={stock.name} />
+          <div>
+            <strong>{stock.name}</strong>
+            <div className="muted small">{stock.local ?? "Solo cotiza en EE. UU."}</div>
+          </div>
         </div>
         {stock.local && (
           <div className="right">
