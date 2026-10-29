@@ -5,7 +5,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import postgres from "npm:postgres@3.4.5";
-import { alpaca, ALPACA_ENV } from "./alpaca.ts";
+import { alpaca, alpacaEnv, setVaultLoader } from "./alpaca.ts";
 import { buildAlpacaOrder, checkOrder, cleanSymbol, HttpError, parseOrder, type RiskConfig } from "./risk.ts";
 import { indexQuotes, yahooBars, yahooSnapshot, yahooSnapshots } from "./yahoo.ts";
 
@@ -27,7 +27,7 @@ const num = (k: string, d: number) => {
 
 const RISK: RiskConfig = {
   tradingEnabled: !["false", "0", "no"].includes(env("TRADING_ENABLED", "true").toLowerCase()),
-  live: ALPACA_ENV === "live",
+  live: false, // se ajusta en cada petición según paper/live
   // Valores conservadores por defecto; súbelos con secretos cuando confíes en la app
   maxOrderUsd: num("MAX_ORDER_USD", 50),
   maxDailyUsd: num("MAX_DAILY_USD", 200),
@@ -42,6 +42,13 @@ const DEFAULT_WATCHLIST = ["SPY", "VOO", "QQQ", "AAPL", "MSFT", "NVDA", "BTC/USD
 
 // Conexión directa al esquema privado (SUPABASE_DB_URL la provee Supabase)
 const sql = postgres(env("SUPABASE_DB_URL"), { prepare: false, max: 3, idle_timeout: 20 });
+// Claves de Alpaca guardadas cifradas en Supabase Vault (respaldo si no hay secretos de la función)
+setVaultLoader(async () => {
+  const rows = await sql`select name, decrypted_secret from vault.decrypted_secrets
+                         where name in ('alpaca_key_id', 'alpaca_secret_key', 'alpaca_env')`;
+  return Object.fromEntries(rows.map((r) => [r.name, r.decrypted_secret ?? ""]));
+});
+
 const supabase = createClient(env("SUPABASE_URL"), env("SUPABASE_ANON_KEY"), {
   auth: { persistSession: false, autoRefreshToken: false },
 });
@@ -79,13 +86,13 @@ async function authenticate(req: Request): Promise<string> {
   return data.user.id;
 }
 
-async function spentToday(userId: string): Promise<number> {
+async function spentToday(userId: string, mode: string): Promise<number> {
   const [row] = await sql`
     select coalesce(sum(estimated_usd), 0)::float8 as total
     from invest.order_log
     where user_id = ${userId}
       and side = 'buy'
-      and environment = ${ALPACA_ENV}
+      and environment = ${mode}
       and created_at >= date_trunc('day', now() at time zone 'utc') at time zone 'utc'
       and status not in ('rejected', 'canceled', 'error', 'expired')`;
   return Number(row?.total ?? 0);
@@ -102,13 +109,15 @@ async function route(req: Request, userId: string): Promise<unknown> {
   const i = parts.indexOf("invest");
   const [resource, ...rest] = parts.slice(i + 1);
   const m = req.method;
+  const ENV = await alpacaEnv();
+  const risk: RiskConfig = { ...RISK, live: ENV === "live" };
 
   if (resource === "me" && m === "GET") {
     return {
-      environment: ALPACA_ENV,
-      trading_enabled: RISK.tradingEnabled,
-      max_order_usd: RISK.maxOrderUsd,
-      max_daily_usd: RISK.maxDailyUsd,
+      environment: ENV,
+      trading_enabled: risk.tradingEnabled,
+      max_order_usd: risk.maxOrderUsd,
+      max_daily_usd: risk.maxDailyUsd,
     };
   }
 
@@ -117,7 +126,7 @@ async function route(req: Request, userId: string): Promise<unknown> {
     const equity = f(a.equity);
     const last = f(a.last_equity);
     return {
-      environment: ALPACA_ENV,
+      environment: ENV,
       status: a.status,
       crypto_status: a.crypto_status,
       equity,
@@ -126,9 +135,9 @@ async function route(req: Request, userId: string): Promise<unknown> {
       day_change: equity - last,
       day_change_pct: last ? ((equity - last) / last) * 100 : 0,
       trading_blocked: a.trading_blocked,
-      spent_today: await spentToday(userId),
-      max_daily_usd: RISK.maxDailyUsd,
-      max_order_usd: RISK.maxOrderUsd,
+      spent_today: await spentToday(userId, ENV),
+      max_daily_usd: risk.maxDailyUsd,
+      max_order_usd: risk.maxOrderUsd,
     };
   }
 
@@ -181,14 +190,14 @@ async function route(req: Request, userId: string): Promise<unknown> {
     if (!ref) throw new HttpError(400, "No hay precio disponible para estimar la orden.");
     const estimated = o.amount_mode === "notional" ? o.amount : o.amount * ref;
 
-    checkOrder(RISK, o.side, estimated, await spentToday(userId), o.confirm);
+    checkOrder(risk, o.side, estimated, await spentToday(userId, ENV), o.confirm);
 
     const payload = buildAlpacaOrder(o, `orion-${crypto.randomUUID().replaceAll("-", "").slice(0, 24)}`);
     const [log] = await sql`
       insert into invest.order_log
         (user_id, environment, symbol, side, order_type, qty, notional, limit_price, estimated_usd, status)
       values
-        (${userId}, ${ALPACA_ENV}, ${o.symbol}, ${o.side}, ${o.order_type},
+        (${userId}, ${ENV}, ${o.symbol}, ${o.side}, ${o.order_type},
          ${o.amount_mode === "qty" ? o.amount : null}, ${o.amount_mode === "notional" ? o.amount : null},
          ${o.limit_price}, ${Math.round(estimated * 100) / 100}, 'pending')
       returning id`;

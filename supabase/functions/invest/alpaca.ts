@@ -3,15 +3,52 @@ import { HttpError, isCrypto } from "./risk.ts";
 
 const env = (k: string, d = "") => Deno.env.get(k) ?? d;
 
-export const ALPACA_ENV = env("ALPACA_ENV", "paper").trim().toLowerCase() === "live" ? "live" : "paper";
-const TRADING_URL = ALPACA_ENV === "live" ? "https://api.alpaca.markets" : "https://paper-api.alpaca.markets";
 const DATA_URL = "https://data.alpaca.markets";
 const FEED = env("ALPACA_STOCK_FEED", "iex");
 
-async function call(base: string, path: string, init: RequestInit = {}, params?: Record<string, string>) {
-  const key = env("ALPACA_KEY_ID");
-  const secret = env("ALPACA_SECRET_KEY");
-  if (!key || !secret) throw new HttpError(503, "Faltan los secretos ALPACA_KEY_ID y ALPACA_SECRET_KEY en Supabase.");
+// ---- Credenciales: primero los secretos de la función; si no existen, Supabase Vault (cifrado) ----
+type Env = "paper" | "live";
+interface Creds {
+  key: string;
+  secret: string;
+  env: Env;
+}
+let vaultLoader: (() => Promise<Record<string, string>>) | null = null;
+let cached: { c: Creds; at: number } | null = null;
+
+export function setVaultLoader(fn: () => Promise<Record<string, string>>) {
+  vaultLoader = fn;
+}
+
+async function creds(): Promise<Creds> {
+  if (cached && Date.now() - cached.at < 5 * 60_000) return cached.c;
+  let key = env("ALPACA_KEY_ID");
+  let secret = env("ALPACA_SECRET_KEY");
+  let mode = env("ALPACA_ENV");
+  if ((!key || !secret) && vaultLoader) {
+    try {
+      const v = await vaultLoader();
+      key = key || v.alpaca_key_id || "";
+      secret = secret || v.alpaca_secret_key || "";
+      mode = mode || v.alpaca_env || "";
+    } catch (e) {
+      console.error("No se pudo leer Vault", e);
+    }
+  }
+  const c: Creds = { key, secret, env: mode.trim().toLowerCase() === "live" ? "live" : "paper" };
+  if (key && secret) cached = { c, at: Date.now() };
+  return c;
+}
+
+export async function alpacaEnv(): Promise<Env> {
+  return (await creds()).env;
+}
+
+async function call(kind: "trade" | "data", path: string, init: RequestInit = {}, params?: Record<string, string>) {
+  const { key, secret, env: mode } = await creds();
+  if (!key || !secret) throw new HttpError(503, "Faltan las claves de Alpaca (ALPACA_KEY_ID y ALPACA_SECRET_KEY).");
+  const base =
+    kind === "data" ? DATA_URL : mode === "live" ? "https://api.alpaca.markets" : "https://paper-api.alpaca.markets";
 
   const url = new URL(path, base);
   if (params) Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
@@ -47,8 +84,8 @@ async function call(base: string, path: string, init: RequestInit = {}, params?:
 }
 
 const trade = (path: string, init?: RequestInit, params?: Record<string, string>) =>
-  call(TRADING_URL, path, init, params);
-const data = (path: string, params?: Record<string, string>) => call(DATA_URL, path, {}, params);
+  call("trade", path, init, params);
+const data = (path: string, params?: Record<string, string>) => call("data", path, {}, params);
 const enc = encodeURIComponent;
 
 export const alpaca = {
