@@ -83,10 +83,21 @@ export async function yahooSnapshot(symbol: string) {
   };
 }
 
-export async function yahooBars(symbol: string, days: number) {
-  const range = days <= 31 ? "1mo" : days <= 92 ? "3mo" : days <= 183 ? "6mo" : days <= 366 ? "1y" : "5y";
+export async function yahooBars(symbol: string, days: number, live = false) {
+  const range = live
+    ? "1d"
+    : days <= 31
+      ? "1mo"
+      : days <= 92
+        ? "3mo"
+        : days <= 183
+          ? "6mo"
+          : days <= 366
+            ? "1y"
+            : "5y";
+  const interval = live ? "5m" : "1d";
   try {
-    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(toYahoo(symbol))}?range=${range}&interval=1d`;
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(toYahoo(symbol))}?range=${range}&interval=${interval}`;
     const r = await fetch(url, {
       headers: { "User-Agent": "Mozilla/5.0 (OrionInvest)", Accept: "application/json" },
       signal: AbortSignal.timeout(8000),

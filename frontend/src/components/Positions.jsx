@@ -1,44 +1,50 @@
 import { cop, num, pct, usd } from "../api.js";
 
+// Mis posiciones en tarjetas (se leen bien en el celular)
 export default function Positions({ positions, rate, onSelect }) {
   return (
     <section className="card">
       <h2>Mis posiciones</h2>
       {positions.length === 0 ? (
-        <p className="muted">Aún no tienes posiciones.</p>
+        <p className="muted">Aún no tienes posiciones. Cuando se ejecute una compra aparecerá aquí.</p>
       ) : (
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Activo</th>
-                <th>Cantidad</th>
-                <th>Precio prom.</th>
-                <th>Valor</th>
-                <th>Ganancia</th>
-              </tr>
-            </thead>
-            <tbody>
-              {positions.map((p) => (
-                <tr key={p.symbol} onClick={() => onSelect(p.asset_class === "crypto" ? p.symbol.replace(/USD$/, "/USD") : p.symbol)}>
-                  <td className="sym">{p.symbol}</td>
-                  <td className="mono">{num(p.qty)}</td>
-                  <td className="mono">{usd(p.avg_entry_price)}</td>
-                  <td className="mono">
-                    {usd(p.market_value)}
-                    <br />
-                    <small className="muted">{cop(p.market_value, rate)}</small>
-                  </td>
-                  <td className={`mono ${p.unrealized_pl >= 0 ? "up" : "down"}`}>
-                    {usd(p.unrealized_pl)}
-                    <br />
-                    <small>{pct(p.unrealized_plpc)}</small>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <ul className="ord-list">
+          {positions.map((p) => {
+            const symbol = p.asset_class === "crypto" ? p.symbol.replace(/USD$/, "/USD") : p.symbol;
+            const up = p.unrealized_pl >= 0;
+            return (
+              <li key={p.symbol} className="ord pos" onClick={() => onSelect(symbol)}>
+                <div className="ord-top">
+                  <div>
+                    <strong className="ord-sym">{symbol}</strong>
+                    {p.asset_class === "crypto" && <span className="tag">cripto</span>}
+                  </div>
+                  <span className={`mono ${up ? "up" : "down"}`}>
+                    {up ? "▲" : "▼"} {pct(p.unrealized_plpc)}
+                  </span>
+                </div>
+                <div className="ord-info three">
+                  <div>
+                    <span className="muted small">Valor</span>
+                    <span className="mono">{usd(p.market_value)}</span>
+                    <span className="muted small mono">{cop(p.market_value, rate)}</span>
+                  </div>
+                  <div>
+                    <span className="muted small">Ganancia</span>
+                    <span className={`mono ${up ? "up" : "down"}`}>{usd(p.unrealized_pl)}</span>
+                    <span className="muted small mono">{cop(p.unrealized_pl, rate)}</span>
+                  </div>
+                  <div>
+                    <span className="muted small">Cantidad</span>
+                    <span className="mono">{num(p.qty)}</span>
+                    <span className="muted small mono">a {usd(p.avg_entry_price)}</span>
+                  </div>
+                </div>
+                <span className="pos-cta small">Ver gráfica en vivo ›</span>
+              </li>
+            );
+          })}
+        </ul>
       )}
     </section>
   );

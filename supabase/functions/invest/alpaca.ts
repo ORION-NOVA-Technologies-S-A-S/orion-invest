@@ -125,7 +125,9 @@ export function alpacaFor(mode: Mode) {
   return {
     account: () => trade("/v2/account"),
     positions: () => trade("/v2/positions"),
-    history: (period: string) => trade("/v2/account/portfolio/history", {}, { period, timeframe: "1D" }),
+    // "1D" (hoy) se pide cada 5 minutos para verlo en vivo; el resto, un punto por día
+    history: (period: string) =>
+      trade("/v2/account/portfolio/history", {}, { period, timeframe: period === "1D" ? "5Min" : "1D" }),
     orders: () => trade("/v2/orders", {}, { status: "all", limit: "50", direction: "desc" }),
     submitOrder: (payload: unknown) => trade("/v2/orders", { method: "POST", body: JSON.stringify(payload) }),
     cancelOrder: (id: string) => trade(`/v2/orders/${enc(id)}`, { method: "DELETE" }),
@@ -184,6 +186,35 @@ export function alpacaFor(mode: Mode) {
       // deno-lint-ignore no-explicit-any
       cryptos.forEach((s) => read(s, (cr as any)?.snapshots?.[s]));
       return out;
+    },
+
+    // Gráfica en vivo: cripto minuto a minuto (últimas 6 h); acciones cada 5 min (última sesión)
+    async intraday(symbol: string) {
+      // deno-lint-ignore no-explicit-any
+      let raw: any[] = [];
+      if (isCrypto(symbol)) {
+        const start = new Date(Date.now() - 6 * 3600_000).toISOString();
+        // deno-lint-ignore no-explicit-any
+        const d: any = await data("/v1beta3/crypto/us/bars", { symbols: symbol, timeframe: "1Min", start, limit: "1000" });
+        raw = d?.bars?.[symbol] ?? [];
+      } else {
+        const start = new Date(Date.now() - 5 * 86400_000).toISOString();
+        // deno-lint-ignore no-explicit-any
+        const d: any = await data(`/v2/stocks/${enc(symbol)}/bars`, {
+          timeframe: "5Min",
+          start,
+          limit: "1000",
+          feed: FEED,
+        });
+        raw = d?.bars ?? [];
+        // Solo la última sesión (día de Nueva York)
+        const nyDay = (t: string) => new Date(t).toLocaleDateString("en-US", { timeZone: "America/New_York" });
+        if (raw.length) {
+          const lastDay = nyDay(raw[raw.length - 1].t);
+          raw = raw.filter((b) => nyDay(b.t) === lastDay);
+        }
+      }
+      return raw.map((b) => ({ t: b.t, o: b.o, h: b.h, l: b.l, c: b.c, v: b.v }));
     },
 
     async bars(symbol: string, days: number) {

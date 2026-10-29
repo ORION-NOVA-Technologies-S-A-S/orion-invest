@@ -10,7 +10,13 @@ import Positions from "./Positions.jsx";
 import QuotePanel from "./QuotePanel.jsx";
 import Watchlist from "./Watchlist.jsx";
 
-const PERIODS = ["1W", "1M", "3M", "1A"];
+const PERIODS = [
+  { id: "1D", label: "● Hoy" },
+  { id: "1W", label: "1S" },
+  { id: "1M", label: "1M" },
+  { id: "3M", label: "3M" },
+  { id: "1A", label: "1A" },
+];
 
 function greeting() {
   const h = new Date().getHours();
@@ -26,7 +32,7 @@ export default function Dashboard({ me, onLogout }) {
   const [positions, setPositions] = useState([]);
   const [orders, setOrders] = useState([]);
   const [history, setHistory] = useState([]);
-  const [period, setPeriod] = useState("1M");
+  const [period, setPeriod] = useState("1D");
   const [selected, setSelected] = useState(null); // activo abierto en "Invertir"
   const [error, setError] = useState("");
   const [fx, setFx] = useState(null);
@@ -58,11 +64,20 @@ export default function Dashboard({ me, onLogout }) {
     return () => clearInterval(id);
   }, [refresh]);
 
+  // Gráfica del portafolio; "Hoy" se refresca cada 30 s (en vivo)
   useEffect(() => {
-    api
-      .history(period)
-      .then((h) => setHistory(h.map((x) => ({ t: x.t * 1000, v: x.equity }))))
-      .catch(() => setHistory([]));
+    let alive = true;
+    const load = () =>
+      api
+        .history(period)
+        .then((h) => alive && setHistory(h.map((x) => ({ t: x.t * 1000, v: x.equity }))))
+        .catch(() => alive && setHistory([]));
+    load();
+    const id = period === "1D" ? setInterval(load, 30000) : null;
+    return () => {
+      alive = false;
+      if (id) clearInterval(id);
+    };
   }, [period]);
 
   // Abrir un activo en la sección Invertir (desde mercados, lista o posiciones)
@@ -131,12 +146,20 @@ export default function Dashboard({ me, onLogout }) {
             </div>
             <div className="tabs">
               {PERIODS.map((p) => (
-                <button key={p} className={period === p ? "on" : ""} onClick={() => setPeriod(p)}>
-                  {p}
+                <button key={p.id} className={`${period === p.id ? "on" : ""} ${p.id === "1D" ? "live-tab" : ""}`} onClick={() => setPeriod(p.id)}>
+                  {p.label}
                 </button>
               ))}
             </div>
-            <LineChart points={history} height={140} format={(v) => usd(v)} />
+            <LineChart
+              points={history}
+              height={140}
+              intraday={period === "1D"}
+              markers={orders
+                .filter((o) => o.filled_at && o.filled_avg_price)
+                .map((o) => ({ t: o.filled_at, v: null, side: o.side }))}
+              format={(v) => usd(v)}
+            />
             <div className="stats">
               <div>
                 <span className="muted">Invertido</span>
@@ -208,7 +231,7 @@ export default function Dashboard({ me, onLogout }) {
                 <button className="link back" onClick={() => setSelected(null)}>
                   ← Volver a mercados
                 </button>
-                <QuotePanel symbol={selected} me={me} rate={rate} onOrderPlaced={refresh} />
+                <QuotePanel symbol={selected} me={me} rate={rate} orders={orders} positions={positions} onOrderPlaced={refresh} />
               </>
             ) : (
               <Markets rate={rate} onSelect={openAsset} />

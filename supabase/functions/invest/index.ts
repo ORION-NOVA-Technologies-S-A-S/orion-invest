@@ -163,7 +163,7 @@ async function route(req: Request, userId: string): Promise<unknown> {
 
   if (resource === "history" && m === "GET") {
     const period = url.searchParams.get("period") ?? "1M";
-    if (!["1W", "1M", "3M", "1A"].includes(period)) throw new HttpError(400, "Periodo no válido.");
+    if (!["1D", "1W", "1M", "3M", "1A"].includes(period)) throw new HttpError(400, "Periodo no válido.");
     const h: Any = await alpaca.history(period);
     const ts: number[] = h?.timestamp ?? [];
     const eq: (number | null)[] = h?.equity ?? [];
@@ -184,6 +184,7 @@ async function route(req: Request, userId: string): Promise<unknown> {
       limit_price: o.limit_price,
       status: o.status,
       submitted_at: o.submitted_at,
+      filled_at: o.filled_at,
     }));
   }
 
@@ -232,8 +233,11 @@ async function route(req: Request, userId: string): Promise<unknown> {
   }
 
   if (resource === "bars" && m === "GET") {
-    const days = Math.min(Math.max(Number(url.searchParams.get("days") ?? 180) || 180, 5), 1825);
     const s = cleanSymbol(url.searchParams.get("symbol"));
+    if (url.searchParams.get("live") === "1") {
+      return await withFallback(() => alpaca.intraday(s), () => yahooBars(s, 1, true));
+    }
+    const days = Math.min(Math.max(Number(url.searchParams.get("days") ?? 180) || 180, 5), 1825);
     return await withFallback(() => alpaca.bars(s, days), () => yahooBars(s, days));
   }
 

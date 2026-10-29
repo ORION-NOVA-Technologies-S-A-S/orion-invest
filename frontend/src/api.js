@@ -78,6 +78,7 @@ export const api = {
 
   quote: (symbol) => request("GET", `/quote?symbol=${q(symbol)}`),
   bars: (symbol, days) => request("GET", `/bars?symbol=${q(symbol)}&days=${days}`),
+  liveBars: (symbol) => request("GET", `/bars?symbol=${q(symbol)}&live=1`),
   asset: (symbol) => request("GET", `/asset?symbol=${q(symbol)}`),
   watchlist: () => request("GET", "/watchlist"),
   addWatch: (symbol) => request("POST", `/watchlist?symbol=${q(symbol)}`),
