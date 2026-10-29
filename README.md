@@ -33,7 +33,7 @@ En Supabase → *Edge Functions → Secrets* del proyecto, crea:
 |---|---|
 | `ALPACA_KEY_ID` | Tu Key ID de Alpaca |
 | `ALPACA_SECRET_KEY` | Tu Secret Key de Alpaca |
-| `ALPACA_ENV` | `paper` (simulado) o `live` (dinero real) |
+| `ALPACA_LIVE_KEY_ID` y `ALPACA_LIVE_SECRET_KEY` | Claves de la cuenta Live (dinero real), opcionales |
 | `MAX_ORDER_USD` | Opcional. Máximo por orden (por defecto 50) |
 | `MAX_DAILY_USD` | Opcional. Máximo de compras al día (por defecto 200) |
 | `TRADING_ENABLED` | Opcional. `false` apaga todas las operaciones |

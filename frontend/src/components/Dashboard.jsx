@@ -3,6 +3,7 @@ import { api, cop, pct, usd } from "../api.js";
 import Allocation from "./Allocation.jsx";
 import LineChart from "./LineChart.jsx";
 import Markets from "./Markets.jsx";
+import ModeSwitch from "./ModeSwitch.jsx";
 import Orders from "./Orders.jsx";
 import Positions from "./Positions.jsx";
 import QuotePanel from "./QuotePanel.jsx";
@@ -81,7 +82,6 @@ export default function Dashboard({ me, onLogout }) {
           <span className="brand-mark">◆</span>
           <strong>Orion Invest</strong>
         </div>
-        <span className={`badge ${live ? "live" : "paper"}`}>{live ? "DINERO REAL" : "SIMULADO"}</span>
         <div className="user">
           <span className="avatar">{userName.slice(0, 1).toUpperCase()}</span>
           <button className="link" onClick={onLogout}>
@@ -89,6 +89,13 @@ export default function Dashboard({ me, onLogout }) {
           </button>
         </div>
       </header>
+
+      <ModeSwitch me={me} />
+      {live ? (
+        <p className="mode-note real">💰 Estás en tu <strong>cuenta real</strong>: las órdenes usan dinero real.</p>
+      ) : (
+        <p className="mode-note demo">🧪 Estás en <strong>Demo</strong>: practicas con dinero simulado, sin riesgo.</p>
+      )}
 
       <nav className="menu">
         <button className={view === "portafolio" ? "on" : ""} onClick={() => setView("portafolio")}>

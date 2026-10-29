@@ -5,7 +5,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import postgres from "npm:postgres@3.4.5";
-import { alpaca, alpacaEnv, setVaultLoader } from "./alpaca.ts";
+import { alpacaFor, availableModes, type Mode, setVaultLoader } from "./alpaca.ts";
 import { buildAlpacaOrder, checkOrder, cleanSymbol, HttpError, parseOrder, type RiskConfig } from "./risk.ts";
 import { indexQuotes, yahooBars, yahooSnapshot, yahooSnapshots } from "./yahoo.ts";
 
@@ -45,7 +45,7 @@ const sql = postgres(env("SUPABASE_DB_URL"), { prepare: false, max: 3, idle_time
 // Claves de Alpaca guardadas cifradas en Supabase Vault (respaldo si no hay secretos de la función)
 setVaultLoader(async () => {
   const rows = await sql`select name, decrypted_secret from vault.decrypted_secrets
-                         where name in ('alpaca_key_id', 'alpaca_secret_key', 'alpaca_env')`;
+                         where name in ('alpaca_key_id', 'alpaca_secret_key', 'alpaca_live_key_id', 'alpaca_live_secret_key')`;
   return Object.fromEntries(rows.map((r) => [r.name, r.decrypted_secret ?? ""]));
 });
 
@@ -57,7 +57,7 @@ function cors(origin: string | null): Record<string, string> {
   const allow = origin && ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
   return {
     "Access-Control-Allow-Origin": allow,
-    "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info",
+    "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-client-info, x-orion-mode",
     "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
     "Access-Control-Max-Age": "600",
     Vary: "Origin",
@@ -109,12 +109,15 @@ async function route(req: Request, userId: string): Promise<unknown> {
   const i = parts.indexOf("invest");
   const [resource, ...rest] = parts.slice(i + 1);
   const m = req.method;
-  const ENV = await alpacaEnv();
+  // Cuenta elegida en la app: "paper" (Demo) o "live" (Cuenta real)
+  const ENV: Mode = req.headers.get("x-orion-mode") === "live" ? "live" : "paper";
+  const alpaca = alpacaFor(ENV);
   const risk: RiskConfig = { ...RISK, live: ENV === "live" };
 
   if (resource === "me" && m === "GET") {
     return {
       environment: ENV,
+      modes: await availableModes(),
       trading_enabled: risk.tradingEnabled,
       max_order_usd: risk.maxOrderUsd,
       max_daily_usd: risk.maxDailyUsd,

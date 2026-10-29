@@ -10,6 +10,23 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: true, autoRefreshToken: true, storageKey: "orion-invest-auth" },
 });
 
+// Cuenta elegida: "paper" (Demo) o "live" (Cuenta real). Se recuerda en este navegador.
+const MODE_KEY = "orion-invest-mode";
+export function getMode() {
+  try {
+    return localStorage.getItem(MODE_KEY) === "live" ? "live" : "paper";
+  } catch {
+    return "paper";
+  }
+}
+export function setMode(mode) {
+  try {
+    localStorage.setItem(MODE_KEY, mode === "live" ? "live" : "paper");
+  } catch {
+    /* sin almacenamiento: se queda en Demo */
+  }
+}
+
 async function request(method, path, body) {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
@@ -24,6 +41,7 @@ async function request(method, path, body) {
       Authorization: `Bearer ${token}`,
       apikey: SUPABASE_KEY,
       "Content-Type": "application/json",
+      "x-orion-mode": getMode(),
     },
     body: body ? JSON.stringify(body) : undefined,
   });

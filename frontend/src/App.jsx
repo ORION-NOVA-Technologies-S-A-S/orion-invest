@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, supabase } from "./api.js";
+import { api, setMode, supabase } from "./api.js";
 import Login from "./components/Login.jsx";
 import Dashboard from "./components/Dashboard.jsx";
 
@@ -12,6 +12,11 @@ export default function App() {
   const loadMe = useCallback(async () => {
     try {
       const [{ data }, info] = await Promise.all([supabase.auth.getUser(), api.me()]);
+      // Si quedó elegida la cuenta real pero ya no tiene claves, vuelve a Demo
+      if (info.environment === "live" && !info.modes?.live) {
+        setMode("paper");
+        return window.location.reload();
+      }
       setMe({ ...info, email: data.user?.email ?? "" });
       setNotice("");
     } catch (e) {

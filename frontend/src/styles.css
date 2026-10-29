@@ -107,6 +107,16 @@ label { display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; col
 .card.mini { padding: 14px 16px; }
 .big-2 { font-size: 1.4rem; font-weight: 600; }
 
+/* Selector Demo / Cuenta real */
+.mode { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 4px; margin-bottom: 8px; }
+.mode button { background: transparent; border: none; border-radius: 9px; padding: 10px; cursor: pointer; font-weight: 700; color: var(--muted); }
+.mode button.on.demo { background: var(--warn); color: #1a1204; }
+.mode button.on.real { background: var(--down); color: #1a0409; }
+.mode-note { font-size: 0.85rem; margin: 0 0 12px; padding: 8px 12px; border-radius: 10px; }
+.mode-note.demo { background: color-mix(in srgb, var(--warn) 12%, transparent); color: var(--warn); }
+.mode-note.real { background: color-mix(in srgb, var(--down) 12%, transparent); color: var(--down); }
+.steps { padding-left: 18px; display: grid; gap: 6px; }
+
 /* Menú principal */
 .menu { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 4px; margin-bottom: 16px; }
 .menu button { background: transparent; border: none; border-radius: 9px; padding: 10px; cursor: pointer; font-weight: 600; color: var(--muted); }
