@@ -5,7 +5,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import postgres from "npm:postgres@3.4.5";
-import { alpacaFor, availableModes, type Mode, setVaultLoader } from "./alpaca.ts";
+import { alpacaFor, availableModes, type Mode, secret, setVaultLoader } from "./alpaca.ts";
+import { askNova, parseMessages } from "./nova.ts";
 import { buildAlpacaOrder, checkOrder, cleanSymbol, HttpError, parseOrder, type RiskConfig } from "./risk.ts";
 import { indexQuotes, yahooBars, yahooSnapshot, yahooSnapshots } from "./yahoo.ts";
 
@@ -45,7 +46,7 @@ const sql = postgres(env("SUPABASE_DB_URL"), { prepare: false, max: 3, idle_time
 // Claves de Alpaca guardadas cifradas en Supabase Vault (respaldo si no hay secretos de la función)
 setVaultLoader(async () => {
   const rows = await sql`select name, decrypted_secret from vault.decrypted_secrets
-                         where name in ('alpaca_key_id', 'alpaca_secret_key', 'alpaca_live_key_id', 'alpaca_live_secret_key')`;
+                         where name in ('alpaca_key_id', 'alpaca_secret_key', 'alpaca_live_key_id', 'alpaca_live_secret_key', 'anthropic_api_key')`;
   return Object.fromEntries(rows.map((r) => [r.name, r.decrypted_secret ?? ""]));
 });
 
@@ -300,8 +301,109 @@ async function route(req: Request, userId: string): Promise<unknown> {
     return await withFallback(() => alpaca.snapshots(symbols), () => yahooSnapshots(symbols));
   }
 
+  // ---------------- NOVA: asesora de inversión con IA ----------------
+  if (resource === "nova" && rest[0] === "profile") {
+    if (m === "GET") {
+      const [p] = await sql`select goal, horizon, risk, monthly_cop, notes from invest.nova_profile where user_id = ${userId}`;
+      return p ?? null;
+    }
+    if (m === "POST") {
+      const b: Any = (await req.json().catch(() => null)) ?? {};
+      const pick = (v: unknown, ok: string[]) => (ok.includes(String(v)) ? String(v) : null);
+      const goal = pick(b.goal, ["dividendos", "crecimiento", "equilibrio", "preservar"]);
+      const horizon = pick(b.horizon, ["corto", "medio", "largo"]);
+      const riskLevel = pick(b.risk, ["bajo", "medio", "alto"]);
+      const monthly = Number(b.monthly_cop) >= 0 ? Math.round(Number(b.monthly_cop)) : null;
+      const notes = typeof b.notes === "string" ? b.notes.slice(0, 1000) : null;
+      await sql`
+        insert into invest.nova_profile (user_id, goal, horizon, risk, monthly_cop, notes, updated_at)
+        values (${userId}, ${goal}, ${horizon}, ${riskLevel}, ${monthly}, ${notes}, now())
+        on conflict (user_id) do update set goal = excluded.goal, horizon = excluded.horizon, risk = excluded.risk,
+          monthly_cop = excluded.monthly_cop, notes = excluded.notes, updated_at = now()`;
+      return { ok: true };
+    }
+  }
+
+  if (resource === "nova" && !rest[0] && m === "POST") {
+    const messages = parseMessages(await req.json().catch(() => null));
+
+    // Límite diario de mensajes (controla el costo de la IA)
+    const limit = num("NOVA_DAILY_LIMIT", 60);
+    const [u] = await sql`
+      insert into invest.nova_usage (user_id, day, count) values (${userId}, (now() at time zone 'America/Bogota')::date, 1)
+      on conflict (user_id, day) do update set count = invest.nova_usage.count + 1
+      returning count`;
+    if (u.count > limit) throw new HttpError(429, `Llegaste al límite de ${limit} mensajes con NOVA por hoy. Vuelve mañana.`);
+
+    // Contexto real del usuario para que NOVA analice
+    const safe = async <T>(fn: () => Promise<T>) => {
+      try {
+        return await fn();
+      } catch {
+        return null;
+      }
+    };
+    const [acct, pos, ords, wl, prof, fx] = await Promise.all([
+      safe(() => alpaca.account() as Promise<Any>),
+      safe(() => alpaca.positions() as Promise<Any[]>),
+      safe(() => alpaca.orders() as Promise<Any[]>),
+      safe(() => sql`select symbol from invest.watchlist where user_id = ${userId}`),
+      safe(() => sql`select goal, horizon, risk, monthly_cop, notes from invest.nova_profile where user_id = ${userId}`),
+      safe(() => usdCop()),
+    ]);
+    const context = {
+      fecha_bogota: new Date().toLocaleString("es-CO", { timeZone: "America/Bogota" }),
+      cuenta: ENV === "live" ? "Cuenta REAL (dinero real)" : "Demo (dinero simulado)",
+      tasa_usd_cop: fx?.usd_cop ?? null,
+      saldo: acct
+        ? { valor_total_usd: f(acct.equity), efectivo_usd: f(acct.cash), poder_de_compra_usd: f(acct.buying_power) }
+        : "no disponible",
+      posiciones: (pos ?? []).map((p: Any) => ({
+        simbolo: p.symbol,
+        tipo: p.asset_class,
+        cantidad: f(p.qty),
+        precio_promedio: f(p.avg_entry_price),
+        valor_usd: f(p.market_value),
+        ganancia_usd: f(p.unrealized_pl),
+        ganancia_pct: Math.round(f(p.unrealized_plpc) * 10000) / 100,
+      })),
+      ordenes_recientes: (ords ?? []).slice(0, 10).map((o: Any) => ({
+        simbolo: o.symbol,
+        lado: o.side,
+        estado: o.status,
+        monto: o.notional ?? o.qty,
+        precio: o.filled_avg_price,
+      })),
+      lista_de_seguimiento: (wl ?? []).map((r: Any) => r.symbol),
+      perfil_inversionista: prof?.[0] ?? "sin definir",
+      limites_app: { max_por_orden_usd: risk.maxOrderUsd, max_compras_dia_usd: risk.maxDailyUsd },
+    };
+
+    const result = await askNova(messages, {
+      apiKey: await secret("ANTHROPIC_API_KEY", "anthropic_api_key"),
+      context,
+      catalog: NOVA_CATALOG,
+      quotes: async (list) =>
+        await withFallback(() => alpaca.snapshots(list.map(cleanSymbol)), () => yahooSnapshots(list.map(cleanSymbol))),
+      localQuotes: (list) => indexQuotes(list.join(",")),
+      history: async (sym, days) => {
+        const s = cleanSymbol(sym);
+        return (await withFallback(() => alpaca.bars(s, days), () => yahooBars(s, days))) as { t: string; c: number }[];
+      },
+    });
+    return { ...result, remaining: Math.max(limit - u.count, 0) };
+  }
+
   throw new HttpError(404, "Ruta no encontrada.");
 }
+
+// Símbolos del menú Mercados (para que NOVA sepa qué ofrece la app)
+const NOVA_CATALOG =
+  "Wall Street: AAPL MSFT NVDA GOOGL META AMZN AVGO AMD ORCL CRM NFLX PLTR BRK.B JPM V MA BAC GS TSLA WMT KO PEP MCD NKE DIS JNJ LLY PFE XOM CVX BA CAT GE. " +
+  "ETF: SPY VOO QQQ DIA IWM VTI VT SCHD VNQ XLK XLE GLD SLV TLT. " +
+  "ETF por país: COLO(Colombia) EWZ(Brasil) EWW(México) ECH(Chile) EPU(Perú) ARGT(Argentina) EWC(Canadá) EWU EWG EWQ EWP EWI EWL EWN EZU VGK EWJ MCHI FXI EWH INDA EWY EWT EWS EWA KSA EIS EZA. " +
+  "ADR latinoamericanos: EC CIB AVAL TGLS PBR VALE ITUB BBD ABEV AMX FMX CX SQM BCH BSAC BAP SCCO BVN MELI YPF GGAL NU. " +
+  "Cripto: BTC/USD ETH/USD SOL/USD XRP/USD LTC/USD DOGE/USD LINK/USD AVAX/USD DOT/USD UNI/USD.";
 
 // Tasa USD/COP de referencia (no requiere claves). Se guarda 1 hora en memoria.
 let fxCache: { rate: number; updated: string; at: number } | null = null;

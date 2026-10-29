@@ -40,6 +40,11 @@ async function vault(): Promise<Record<string, string>> {
   return v;
 }
 
+/** Un secreto: primero de la función, si no, de Vault (ej. la clave de la IA de NOVA). */
+export async function secret(envName: string, vaultName: string): Promise<string> {
+  return env(envName) || (await vault())[vaultName] || "";
+}
+
 async function creds(mode: Mode): Promise<Creds> {
   const v = await vault();
   if (mode === "live") {

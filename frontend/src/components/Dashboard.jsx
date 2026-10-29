@@ -5,6 +5,7 @@ import LineChart from "./LineChart.jsx";
 import Markets from "./Markets.jsx";
 import ModeSwitch from "./ModeSwitch.jsx";
 import DemoReset from "./DemoReset.jsx";
+import NovaChat from "./NovaChat.jsx";
 import Orders from "./Orders.jsx";
 import Positions from "./Positions.jsx";
 import QuotePanel from "./QuotePanel.jsx";
@@ -115,7 +116,7 @@ export default function Dashboard({ me, onLogout }) {
 
       <nav className="menu">
         <button className={view === "portafolio" ? "on" : ""} onClick={() => setView("portafolio")}>
-          💼 Mi portafolio
+          💼 Portafolio
         </button>
         <button
           className={view === "invertir" ? "on" : ""}
@@ -125,6 +126,9 @@ export default function Dashboard({ me, onLogout }) {
           }}
         >
           📈 Invertir
+        </button>
+        <button className={view === "nova" ? "on" : ""} onClick={() => setView("nova")}>
+          🤖 NOVA
         </button>
       </nav>
 
@@ -247,6 +251,9 @@ export default function Dashboard({ me, onLogout }) {
           </div>
         </div>
       )}
+
+      {/* ---------------- NOVA ---------------- */}
+      {view === "nova" && <NovaChat me={me} onOpenAsset={openAsset} />}
 
       <footer className="muted small foot">
         Orion Nova Technologies · Operado a través de Alpaca Securities. Invertir implica riesgo de pérdida.
