@@ -457,7 +457,7 @@ async function ensureBrain(alpaca: AlpacaClient, force: boolean): Promise<{ brai
   // …y anota las de hoy (las situaciones que cree favorables)
   for (const s of signals.filter((x) => x.señal === "comprar")) {
     await sql`insert into invest.nova_predictions (symbol, made_on, price, state, expected_pct, due_on)
-              values (${s.symbol}, current_date, ${s.price}, ${s.state}, ${s.esperado_pct}, current_date + ${Math.round(HORIZON * 1.45)})
+              values (${s.symbol}, current_date, ${s.price}, ${s.state}, ${s.esperado_pct}, current_date + ${Math.round(HORIZON * 1.45)}::int)
               on conflict (symbol, made_on) do nothing`;
   }
 
