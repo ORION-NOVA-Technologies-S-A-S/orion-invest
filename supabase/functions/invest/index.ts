@@ -273,6 +273,19 @@ async function route(req: Request, userId: string): Promise<unknown> {
 
   if (resource === "fx" && m === "GET") return await usdCop();
 
+  // Horario de la bolsa de EE. UU. (para avisar cuándo se ejecutan las órdenes pendientes)
+  if (resource === "clock" && m === "GET") {
+    const c: Any = await alpaca.clock();
+    return { is_open: !!c?.is_open, next_open: c?.next_open ?? null, next_close: c?.next_close ?? null };
+  }
+
+  // Reiniciar la cuenta Demo: vende todo y cancela órdenes. Nunca disponible en la cuenta real.
+  if (resource === "demo-reset" && m === "POST") {
+    if (ENV !== "paper") throw new HttpError(403, "Esta opción solo existe en la cuenta Demo.");
+    await alpaca.closeAll();
+    return { ok: true };
+  }
+
   if (resource === "indices" && m === "GET") return await indexQuotes(url.searchParams.get("symbols"));
 
   // Varias cotizaciones de Alpaca en una sola llamada (para el menú Mercados)

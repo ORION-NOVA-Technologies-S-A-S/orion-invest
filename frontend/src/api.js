@@ -83,6 +83,8 @@ export const api = {
   addWatch: (symbol) => request("POST", `/watchlist?symbol=${q(symbol)}`),
   removeWatch: (symbol) => request("DELETE", `/watchlist?symbol=${q(symbol)}`),
   fx: () => request("GET", "/fx"),
+  clock: () => request("GET", "/clock"),
+  resetDemo: () => request("POST", "/demo-reset"),
   quotes: (symbols) => request("GET", `/quotes?symbols=${symbols.map(q).join(",")}`),
   indices: (symbols) => request("GET", `/indices?symbols=${symbols.map(q).join(",")}`),
 };

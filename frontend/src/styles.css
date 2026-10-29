@@ -116,6 +116,7 @@ label { display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; col
 .mode-note.demo { background: color-mix(in srgb, var(--warn) 12%, transparent); color: var(--warn); }
 .mode-note.real { background: color-mix(in srgb, var(--down) 12%, transparent); color: var(--down); }
 .steps { padding-left: 18px; display: grid; gap: 6px; }
+.wait { color: var(--warn); margin-top: 4px; }
 
 /* Menú principal */
 .menu { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 4px; margin-bottom: 16px; }

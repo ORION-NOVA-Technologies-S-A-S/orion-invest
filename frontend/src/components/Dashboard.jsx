@@ -4,6 +4,7 @@ import Allocation from "./Allocation.jsx";
 import LineChart from "./LineChart.jsx";
 import Markets from "./Markets.jsx";
 import ModeSwitch from "./ModeSwitch.jsx";
+import DemoReset from "./DemoReset.jsx";
 import Orders from "./Orders.jsx";
 import Positions from "./Positions.jsx";
 import QuotePanel from "./QuotePanel.jsx";
@@ -189,6 +190,7 @@ export default function Dashboard({ me, onLogout }) {
                   </div>
                 </div>
               </section>
+              {!live && <DemoReset onDone={refresh} />}
               <button className="btn primary full-btn" onClick={() => setView("invertir")}>
                 📈 Ir a invertir
               </button>

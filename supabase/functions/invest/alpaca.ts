@@ -130,6 +130,9 @@ export function alpacaFor(mode: Mode) {
     submitOrder: (payload: unknown) => trade("/v2/orders", { method: "POST", body: JSON.stringify(payload) }),
     cancelOrder: (id: string) => trade(`/v2/orders/${enc(id)}`, { method: "DELETE" }),
     asset: (symbol: string) => trade(`/v2/assets/${enc(symbol)}`),
+    clock: () => trade("/v2/clock"),
+    // Vende todas las posiciones y cancela las órdenes abiertas
+    closeAll: () => trade("/v2/positions", { method: "DELETE" }, { cancel_orders: "true" }),
 
     async snapshot(symbol: string) {
       // deno-lint-ignore no-explicit-any
