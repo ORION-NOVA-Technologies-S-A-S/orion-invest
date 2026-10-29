@@ -7,7 +7,17 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import postgres from "npm:postgres@3.4.5";
 import { alpaca, ALPACA_ENV } from "./alpaca.ts";
 import { buildAlpacaOrder, checkOrder, cleanSymbol, HttpError, parseOrder, type RiskConfig } from "./risk.ts";
-import { indexQuotes } from "./yahoo.ts";
+import { indexQuotes, yahooBars, yahooSnapshot, yahooSnapshots } from "./yahoo.ts";
+
+// Si Alpaca no tiene claves (503), los precios se muestran desde Yahoo. Comprar sigue requiriendo Alpaca.
+async function withFallback(primary: () => Promise<unknown>, fallback: () => Promise<unknown>): Promise<unknown> {
+  try {
+    return await primary();
+  } catch (e) {
+    if (e instanceof HttpError && e.status === 503) return await fallback();
+    throw e;
+  }
+}
 
 const env = (k: string, d = "") => Deno.env.get(k) ?? d;
 const num = (k: string, d: number) => {
@@ -205,12 +215,14 @@ async function route(req: Request, userId: string): Promise<unknown> {
   }
 
   if (resource === "quote" && m === "GET") {
-    return await alpaca.snapshot(cleanSymbol(url.searchParams.get("symbol")));
+    const s = cleanSymbol(url.searchParams.get("symbol"));
+    return await withFallback(() => alpaca.snapshot(s), () => yahooSnapshot(s));
   }
 
   if (resource === "bars" && m === "GET") {
     const days = Math.min(Math.max(Number(url.searchParams.get("days") ?? 180) || 180, 5), 1825);
-    return await alpaca.bars(cleanSymbol(url.searchParams.get("symbol")), days);
+    const s = cleanSymbol(url.searchParams.get("symbol"));
+    return await withFallback(() => alpaca.bars(s, days), () => yahooBars(s, days));
   }
 
   if (resource === "asset" && m === "GET") {
@@ -255,7 +267,8 @@ async function route(req: Request, userId: string): Promise<unknown> {
   if (resource === "quotes" && m === "GET") {
     const list = (url.searchParams.get("symbols") ?? "").split(",").filter(Boolean);
     if (list.length === 0 || list.length > 40) throw new HttpError(400, "Entre 1 y 40 símbolos.");
-    return await alpaca.snapshots(list.map(cleanSymbol));
+    const symbols = list.map(cleanSymbol);
+    return await withFallback(() => alpaca.snapshots(symbols), () => yahooSnapshots(symbols));
   }
 
   throw new HttpError(404, "Ruta no encontrada.");

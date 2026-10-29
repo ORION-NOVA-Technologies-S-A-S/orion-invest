@@ -49,6 +49,57 @@ async function fetchOne(symbol: string): Promise<IndexQuote | null> {
   return data;
 }
 
+// ---- Respaldo para ver precios cuando Alpaca no está configurado (solo para mostrar) ----
+// Alpaca usa "BRK.B" y "BTC/USD"; Yahoo usa "BRK-B" y "BTC-USD".
+const toYahoo = (s: string) => s.replace("/", "-").replace(".", "-");
+
+export async function yahooSnapshots(symbols: string[]) {
+  const res = await Promise.all(symbols.map((s) => fetchOne(toYahoo(s))));
+  return Object.fromEntries(
+    symbols.map((s, i) => [s, res[i] ? { price: res[i]!.price, change_pct: res[i]!.change_pct, source: "yahoo" } : null]),
+  );
+}
+
+export async function yahooSnapshot(symbol: string) {
+  const q = await fetchOne(toYahoo(symbol));
+  if (!q?.price) throw new HttpError(404, `No hay datos para ${symbol}`);
+  const change = q.prev_close ? q.price - q.prev_close : null;
+  return {
+    symbol,
+    asset_class: symbol.includes("/") ? "crypto" : "us_equity",
+    price: q.price,
+    prev_close: q.prev_close,
+    change,
+    change_pct: q.change_pct,
+    day_high: null,
+    day_low: null,
+    bid: null,
+    ask: null,
+    source: "yahoo",
+  };
+}
+
+export async function yahooBars(symbol: string, days: number) {
+  const range = days <= 31 ? "1mo" : days <= 92 ? "3mo" : days <= 183 ? "6mo" : days <= 366 ? "1y" : "5y";
+  try {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(toYahoo(symbol))}?range=${range}&interval=1d`;
+    const r = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0 (OrionInvest)", Accept: "application/json" },
+      signal: AbortSignal.timeout(8000),
+    });
+    // deno-lint-ignore no-explicit-any
+    const j: any = await r.json();
+    const res = j?.chart?.result?.[0];
+    const ts: number[] = res?.timestamp ?? [];
+    const close: (number | null)[] = res?.indicators?.quote?.[0]?.close ?? [];
+    return ts
+      .map((t, i) => ({ t: new Date(t * 1000).toISOString(), o: null, h: null, l: null, c: close[i], v: null }))
+      .filter((b) => b.c != null);
+  } catch {
+    return [];
+  }
+}
+
 export async function indexQuotes(raw: string | null): Promise<Record<string, IndexQuote | null>> {
   const symbols = (raw ?? "").split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
   if (symbols.length === 0 || symbols.length > 40) throw new HttpError(400, "Entre 1 y 40 índices.");
