@@ -1,31 +1,31 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { api, cop, num, pct, usd } from "../api.js";
 import { CRYPTO, WALL_STREET, WORLD } from "../markets.js";
 
-const TABS = [
+const TOP_TABS = [
   { id: "ws", label: "🇺🇸 Wall Street" },
   { id: "world", label: "🌎 Bolsas del mundo" },
   { id: "crypto", label: "₿ Cripto" },
 ];
 
-// Carga precios de Alpaca e índices locales para la pestaña activa (se refresca cada minuto)
-function useMarketData(symbols, indices) {
-  const [quotes, setQuotes] = useState({});
-  const [idx, setIdx] = useState({});
-  const [error, setError] = useState("");
-  const key = symbols.join(",") + "|" + indices.join(",");
+// ---------- Carga de datos (en lotes de 40, se refresca cada minuto) ----------
+const chunks = (arr, n = 40) => Array.from({ length: Math.ceil(arr.length / n) }, (_, i) => arr.slice(i * n, i * n + n));
 
+function usePrices(symbols, loader) {
+  const [data, setData] = useState({});
+  const [error, setError] = useState("");
+  const key = symbols.join(",");
   useEffect(() => {
+    if (!symbols.length) return setData({});
     let alive = true;
     const load = async () => {
-      const [q, i] = await Promise.allSettled([
-        symbols.length ? api.quotes(symbols) : {},
-        indices.length ? api.indices(indices) : {},
-      ]);
+      const parts = await Promise.allSettled(chunks(symbols).map(loader));
       if (!alive) return;
-      if (q.status === "fulfilled") setQuotes(q.value);
-      else setError(q.reason.message);
-      if (i.status === "fulfilled") setIdx(i.value);
+      const merged = {};
+      parts.forEach((p) => p.status === "fulfilled" && Object.assign(merged, p.value));
+      const failed = parts.find((p) => p.status === "rejected");
+      setError(failed ? failed.reason.message : "");
+      setData(merged);
     };
     load();
     const id = setInterval(load, 60000);
@@ -35,13 +35,28 @@ function useMarketData(symbols, indices) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
+  return { data, error };
+}
+const useUsQuotes = (symbols) => usePrices(symbols, api.quotes); // Alpaca (o Yahoo de respaldo), en USD
+const useLocalQuotes = (symbols) => usePrices(symbols, api.indices); // Yahoo, en moneda local
 
-  return { quotes, idx, error };
+// Precio en moneda local. Londres cotiza en peniques (GBp), Tel Aviv en agorot (ILA), Johannesburgo en centavos (ZAc).
+function localMoney(value, currency) {
+  if (value == null) return "—";
+  const sub = { GBp: "GBP", ILA: "ILS", ZAc: "ZAR" };
+  const cur = sub[currency] ?? currency;
+  const v = sub[currency] ? value / 100 : value;
+  try {
+    return new Intl.NumberFormat("es-CO", { style: "currency", currency: cur, maximumFractionDigits: 2 }).format(v);
+  } catch {
+    return `${num(v, 2)} ${currency ?? ""}`;
+  }
 }
 
 const Change = ({ value }) => <span className={`mono ${value >= 0 ? "up" : "down"}`}>{pct(value)}</span>;
 
-function Row({ symbol, name, quote, rate, onSelect }) {
+// ---------- Filas ----------
+function UsRow({ symbol, name, quote, rate, onSelect }) {
   const d = quote?.price < 1 ? 4 : 2;
   return (
     <li className="mk-row" onClick={() => onSelect(symbol)}>
@@ -60,11 +75,42 @@ function Row({ symbol, name, quote, rate, onSelect }) {
   );
 }
 
+function LocalRow({ stock, local, adrQuote, rate, onSelect }) {
+  return (
+    <li className="mk-stock">
+      <div className="mk-stock-top">
+        <div>
+          <strong>{stock.name}</strong>
+          <div className="muted small">{stock.local ?? "Solo cotiza en EE. UU."}</div>
+        </div>
+        {stock.local && (
+          <div className="right">
+            <div className="mono">{localMoney(local?.price, local?.currency)}</div>
+            {local ? <Change value={local.change_pct} /> : <span className="muted small">sin datos</span>}
+          </div>
+        )}
+      </div>
+      {stock.adr ? (
+        <button className="mk-adr" onClick={() => onSelect(stock.adr)}>
+          <span>
+            Comprar en EE. UU. · <strong>{stock.adr}</strong>
+          </span>
+          <span className="mono">
+            {usd(adrQuote?.price)} <small className="muted">{cop(adrQuote?.price, rate)}</small>
+          </span>
+        </button>
+      ) : (
+        <p className="muted small mk-note">Solo consulta: esta empresa no cotiza en EE. UU., no se puede comprar con Alpaca.</p>
+      )}
+    </li>
+  );
+}
+
 function IndexChip({ name, data }) {
   return (
     <div className="mk-index">
       <span className="muted small">{name}</span>
-      {data ? (
+      {data?.price != null ? (
         <>
           <span className="mono">{num(data.price, 2)}</span>
           <Change value={data.change_pct} />
@@ -77,111 +123,225 @@ function IndexChip({ name, data }) {
   );
 }
 
+function CryptoList({ rate, onSelect }) {
+  const { data, error } = useUsQuotes(CRYPTO.map((c) => c.symbol));
+  return (
+    <>
+      {error && <p className="error">{error}</p>}
+      <ul className="mk-list">
+        {CRYPTO.map((c) => (
+          <UsRow key={c.symbol} {...c} quote={data[c.symbol]} rate={rate} onSelect={onSelect} />
+        ))}
+      </ul>
+    </>
+  );
+}
+
+// ---------- Página de una bolsa: Acciones | ETF | Cripto ----------
+function ExchangeView({ market, isUS, rate, onSelect, onBack }) {
+  const [sub, setSub] = useState("acciones");
+
+  const indexList = isUS ? market.indices : market.index ? [{ name: market.indexName, index: market.index }] : [];
+  const localSymbols = isUS ? [] : market.stocks.map((x) => x.local).filter(Boolean);
+  const usSymbols =
+    sub === "etf"
+      ? market.etfs.map((x) => x.symbol)
+      : sub === "acciones"
+        ? isUS
+          ? market.sectors.flatMap((g) => g.stocks.map((x) => x.symbol))
+          : market.stocks.map((x) => x.adr).filter(Boolean)
+        : [];
+
+  const idx = useLocalQuotes(indexList.map((x) => x.index));
+  const local = useLocalQuotes(sub === "acciones" ? localSymbols : []);
+  const us = useUsQuotes([...new Set(usSymbols)]);
+
+  const counts = {
+    acciones: isUS ? market.sectors.reduce((n, g) => n + g.stocks.length, 0) : market.stocks.length,
+    etf: market.etfs.length,
+  };
+
+  return (
+    <>
+      {onBack && (
+        <button className="link back" onClick={onBack}>
+          ← Volver a las bolsas
+        </button>
+      )}
+      <div className="mk-card-head">
+        <span className="flag">{market.flag}</span>
+        <div>
+          <h3 className="mk-h">{market.country}</h3>
+          <div className="muted small">{market.exchange}</div>
+        </div>
+      </div>
+
+      <div className="mk-indices">
+        {indexList.length ? (
+          indexList.map((x) => <IndexChip key={x.index} name={x.name} data={idx.data[x.index]} />)
+        ) : (
+          <IndexChip name={market.indexName} data={null} />
+        )}
+      </div>
+
+      <div className="seg three">
+        <button className={sub === "acciones" ? "on" : ""} onClick={() => setSub("acciones")}>
+          Acciones ({counts.acciones})
+        </button>
+        <button className={sub === "etf" ? "on" : ""} onClick={() => setSub("etf")}>
+          ETF ({counts.etf})
+        </button>
+        <button className={sub === "cripto" ? "on" : ""} onClick={() => setSub("cripto")}>
+          Cripto
+        </button>
+      </div>
+
+      {us.error && sub !== "cripto" && <p className="error">{us.error}</p>}
+
+      {sub === "acciones" && isUS &&
+        market.sectors.map((g) => (
+          <div key={g.name}>
+            <h4 className="mk-title">{g.name}</h4>
+            <ul className="mk-list">
+              {g.stocks.map((x) => (
+                <UsRow key={x.symbol} {...x} quote={us.data[x.symbol]} rate={rate} onSelect={onSelect} />
+              ))}
+            </ul>
+          </div>
+        ))}
+
+      {sub === "acciones" && !isUS && (
+        <>
+          {market.stocks.length === 0 ? (
+            <p className="muted">Este mercado se invierte a través de sus ETF. Mira la pestaña ETF.</p>
+          ) : (
+            <>
+              <p className="muted small">
+                Precios en moneda local de la bolsa de {market.country}. Las que tienen el botón “Comprar en EE. UU.” se
+                compran en dólares a través de Alpaca.
+              </p>
+              <ul className="mk-list">
+                {market.stocks.map((x) => (
+                  <LocalRow
+                    key={x.name}
+                    stock={x}
+                    local={x.local ? local.data[x.local] : null}
+                    adrQuote={x.adr ? us.data[x.adr] : null}
+                    rate={rate}
+                    onSelect={onSelect}
+                  />
+                ))}
+              </ul>
+            </>
+          )}
+        </>
+      )}
+
+      {sub === "etf" && (
+        <>
+          {!isUS && (
+            <p className="muted small">Fondos listados en EE. UU. que replican la bolsa de {market.country}. Se compran en dólares.</p>
+          )}
+          <ul className="mk-list">
+            {market.etfs.map((x) => (
+              <UsRow key={x.symbol} {...x} quote={us.data[x.symbol]} rate={rate} onSelect={onSelect} />
+            ))}
+          </ul>
+        </>
+      )}
+
+      {sub === "cripto" && (
+        <>
+          <p className="muted small">
+            Las criptomonedas no pertenecen a la bolsa de un país: son las mismas en todo el mundo y se negocian 24/7.
+          </p>
+          <CryptoList rate={rate} onSelect={onSelect} />
+        </>
+      )}
+    </>
+  );
+}
+
+// ---------- Lista de bolsas del mundo ----------
+function WorldList({ onOpen }) {
+  const [region, setRegion] = useState(WORLD[0].region);
+  const markets = WORLD.find((r) => r.region === region).markets;
+  const idx = useLocalQuotes(markets.map((m) => m.index).filter(Boolean));
+
+  return (
+    <>
+      <div className="tabs scroll sub">
+        {WORLD.map((r) => (
+          <button key={r.region} className={region === r.region ? "on" : ""} onClick={() => setRegion(r.region)}>
+            {r.region}
+          </button>
+        ))}
+      </div>
+      <ul className="mk-list">
+        {markets.map((m) => {
+          const d = m.index ? idx.data[m.index] : null;
+          return (
+            <li key={m.id} className="mk-exchange" onClick={() => onOpen(m)}>
+              <span className="flag">{m.flag}</span>
+              <div>
+                <strong>{m.country}</strong>
+                <div className="muted small">{m.exchange}</div>
+                <div className="muted small">
+                  {m.stocks.length} acciones · {m.etfs.length} ETF
+                </div>
+              </div>
+              <div className="right">
+                <div className="muted small">{m.indexName}</div>
+                {d?.price != null ? (
+                  <>
+                    <div className="mono">{num(d.price, 2)}</div>
+                    <Change value={d.change_pct} />
+                  </>
+                ) : (
+                  <div className="muted small">—</div>
+                )}
+              </div>
+              <span className="chev">›</span>
+            </li>
+          );
+        })}
+      </ul>
+    </>
+  );
+}
+
 export default function Markets({ rate, onSelect }) {
   const [tab, setTab] = useState("ws");
-  const [region, setRegion] = useState(WORLD[0].region);
-
-  const { symbols, indices } = useMemo(() => {
-    if (tab === "ws") {
-      return {
-        symbols: [...WALL_STREET.indices.map((x) => x.etf), ...WALL_STREET.stocks.map((x) => x.symbol), ...WALL_STREET.etfs.map((x) => x.symbol)],
-        indices: WALL_STREET.indices.map((x) => x.index),
-      };
-    }
-    if (tab === "crypto") return { symbols: CRYPTO.map((x) => x.symbol), indices: [] };
-    const ms = WORLD.find((r) => r.region === region).markets;
-    return {
-      symbols: ms.flatMap((m) => [m.etf, ...(m.extra ?? []).map((e) => e.symbol)]),
-      indices: ms.map((m) => m.index).filter(Boolean),
-    };
-  }, [tab, region]);
-
-  const { quotes, idx, error } = useMarketData(symbols, indices);
+  const [market, setMarket] = useState(null); // bolsa abierta en "Bolsas del mundo"
 
   return (
     <section className="card">
       <h2>Mercados</h2>
       <div className="tabs scroll">
-        {TABS.map((t) => (
-          <button key={t.id} className={tab === t.id ? "on" : ""} onClick={() => setTab(t.id)}>
+        {TOP_TABS.map((t) => (
+          <button
+            key={t.id}
+            className={tab === t.id ? "on" : ""}
+            onClick={() => {
+              setTab(t.id);
+              setMarket(null);
+            }}
+          >
             {t.label}
           </button>
         ))}
       </div>
-      {error && <p className="error">{error}</p>}
 
-      {tab === "ws" && (
-        <>
-          <div className="mk-indices">
-            {WALL_STREET.indices.map((x) => (
-              <IndexChip key={x.index} name={x.name} data={idx[x.index]} />
-            ))}
-          </div>
-          <h3 className="mk-title">Invierte en los índices</h3>
-          <ul className="mk-list">
-            {WALL_STREET.indices.map((x) => (
-              <Row key={x.etf} symbol={x.etf} name={`ETF que sigue el ${x.name}`} quote={quotes[x.etf]} rate={rate} onSelect={onSelect} />
-            ))}
-          </ul>
-          <h3 className="mk-title">Acciones populares</h3>
-          <ul className="mk-list">
-            {WALL_STREET.stocks.map((x) => (
-              <Row key={x.symbol} {...x} quote={quotes[x.symbol]} rate={rate} onSelect={onSelect} />
-            ))}
-          </ul>
-          <h3 className="mk-title">ETF destacados</h3>
-          <ul className="mk-list">
-            {WALL_STREET.etfs.map((x) => (
-              <Row key={x.symbol} {...x} quote={quotes[x.symbol]} rate={rate} onSelect={onSelect} />
-            ))}
-          </ul>
-        </>
+      {tab === "ws" && <ExchangeView market={WALL_STREET} isUS rate={rate} onSelect={onSelect} />}
+
+      {tab === "world" && !market && <WorldList onOpen={(m) => (setMarket(m), window.scrollTo({ top: 0 }))} />}
+      {tab === "world" && market && (
+        <ExchangeView key={market.id} market={market} rate={rate} onSelect={onSelect} onBack={() => setMarket(null)} />
       )}
 
-      {tab === "world" && (
-        <>
-          <div className="tabs scroll sub">
-            {WORLD.map((r) => (
-              <button key={r.region} className={region === r.region ? "on" : ""} onClick={() => setRegion(r.region)}>
-                {r.region}
-              </button>
-            ))}
-          </div>
-          <p className="muted small">
-            Alpaca opera en EE. UU., así que inviertes en cada bolsa a través de un ETF que la replica (en dólares). El
-            índice local es solo informativo.
-          </p>
-          <div className="mk-grid">
-            {WORLD.find((r) => r.region === region).markets.map((m) => (
-              <div key={m.country} className="mk-card">
-                <div className="mk-card-head">
-                  <span className="flag">{m.flag}</span>
-                  <div>
-                    <strong>{m.country}</strong>
-                    <div className="muted small">{m.exchange}</div>
-                  </div>
-                </div>
-                <IndexChip name={m.indexName} data={m.index ? idx[m.index] : null} />
-                <ul className="mk-list">
-                  <Row symbol={m.etf} name={`ETF de ${m.country}`} quote={quotes[m.etf]} rate={rate} onSelect={onSelect} />
-                  {(m.extra ?? []).map((e) => (
-                    <Row key={e.symbol} {...e} quote={quotes[e.symbol]} rate={rate} onSelect={onSelect} />
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
+      {tab === "crypto" && <CryptoList rate={rate} onSelect={onSelect} />}
 
-      {tab === "crypto" && (
-        <ul className="mk-list">
-          {CRYPTO.map((x) => (
-            <Row key={x.symbol} {...x} quote={quotes[x.symbol]} rate={rate} onSelect={onSelect} />
-          ))}
-        </ul>
-      )}
-      <p className="muted small">Toca cualquier activo para ver su gráfica y comprarlo.</p>
+      <p className="muted small">Toca un activo que se pueda comprar para ver su gráfica y el formulario de compra.</p>
     </section>
   );
 }

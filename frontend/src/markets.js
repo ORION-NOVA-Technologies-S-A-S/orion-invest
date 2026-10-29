@@ -1,90 +1,10 @@
-// Catálogo del menú "Mercados".
-// - etf: fondo listado en EE. UU. que sigue esa bolsa → SE PUEDE COMPRAR con Alpaca (en USD)
-// - index: índice local de esa bolsa → SOLO SE MUESTRA (fuente: Yahoo Finance)
-
-export const WALL_STREET = {
-  indices: [
-    { name: "S&P 500", index: "^GSPC", etf: "SPY" },
-    { name: "Nasdaq 100", index: "^NDX", etf: "QQQ" },
-    { name: "Dow Jones", index: "^DJI", etf: "DIA" },
-    { name: "Russell 2000", index: "^RUT", etf: "IWM" },
-  ],
-  stocks: [
-    { symbol: "AAPL", name: "Apple" },
-    { symbol: "MSFT", name: "Microsoft" },
-    { symbol: "NVDA", name: "Nvidia" },
-    { symbol: "AMZN", name: "Amazon" },
-    { symbol: "GOOGL", name: "Alphabet (Google)" },
-    { symbol: "META", name: "Meta" },
-    { symbol: "TSLA", name: "Tesla" },
-    { symbol: "BRK.B", name: "Berkshire Hathaway" },
-    { symbol: "JPM", name: "JPMorgan" },
-    { symbol: "V", name: "Visa" },
-    { symbol: "KO", name: "Coca-Cola" },
-    { symbol: "JNJ", name: "Johnson & Johnson" },
-  ],
-  etfs: [
-    { symbol: "VOO", name: "Vanguard S&P 500" },
-    { symbol: "VTI", name: "Todo el mercado de EE. UU." },
-    { symbol: "VT", name: "Todo el mercado mundial" },
-    { symbol: "SCHD", name: "Dividendos EE. UU." },
-    { symbol: "GLD", name: "Oro" },
-    { symbol: "TLT", name: "Bonos del Tesoro 20+ años" },
-  ],
-};
-
-export const WORLD = [
-  {
-    region: "Latinoamérica",
-    markets: [
-      { flag: "🇨🇴", country: "Colombia", exchange: "Bolsa de Valores de Colombia", index: null, indexName: "COLCAP", etf: "COLO",
-        extra: [{ symbol: "EC", name: "Ecopetrol (ADR)" }, { symbol: "CIB", name: "Grupo Cibest / Bancolombia (ADR)" }] },
-      { flag: "🇧🇷", country: "Brasil", exchange: "B3 São Paulo", index: "^BVSP", indexName: "Ibovespa", etf: "EWZ" },
-      { flag: "🇲🇽", country: "México", exchange: "Bolsa Mexicana", index: "^MXX", indexName: "S&P/BMV IPC", etf: "EWW" },
-      { flag: "🇨🇱", country: "Chile", exchange: "Bolsa de Santiago", index: null, indexName: "IPSA", etf: "ECH" },
-      { flag: "🇵🇪", country: "Perú", exchange: "Bolsa de Lima", index: null, indexName: "S&P/BVL", etf: "EPU" },
-      { flag: "🇦🇷", country: "Argentina", exchange: "BYMA Buenos Aires", index: "^MERV", indexName: "Merval", etf: "ARGT" },
-    ],
-  },
-  {
-    region: "Norteamérica",
-    markets: [{ flag: "🇨🇦", country: "Canadá", exchange: "Bolsa de Toronto", index: "^GSPTSE", indexName: "S&P/TSX", etf: "EWC" }],
-  },
-  {
-    region: "Europa",
-    markets: [
-      { flag: "🇪🇺", country: "Eurozona", exchange: "Grandes empresas europeas", index: "^STOXX50E", indexName: "Euro Stoxx 50", etf: "EZU" },
-      { flag: "🇬🇧", country: "Reino Unido", exchange: "Bolsa de Londres", index: "^FTSE", indexName: "FTSE 100", etf: "EWU" },
-      { flag: "🇩🇪", country: "Alemania", exchange: "Bolsa de Fráncfort", index: "^GDAXI", indexName: "DAX", etf: "EWG" },
-      { flag: "🇫🇷", country: "Francia", exchange: "Euronext París", index: "^FCHI", indexName: "CAC 40", etf: "EWQ" },
-      { flag: "🇪🇸", country: "España", exchange: "Bolsa de Madrid", index: "^IBEX", indexName: "IBEX 35", etf: "EWP" },
-      { flag: "🇮🇹", country: "Italia", exchange: "Bolsa de Milán", index: "FTSEMIB.MI", indexName: "FTSE MIB", etf: "EWI" },
-      { flag: "🇨🇭", country: "Suiza", exchange: "SIX Zúrich", index: "^SSMI", indexName: "SMI", etf: "EWL" },
-      { flag: "🇳🇱", country: "Países Bajos", exchange: "Euronext Ámsterdam", index: "^AEX", indexName: "AEX", etf: "EWN" },
-    ],
-  },
-  {
-    region: "Asia y Oceanía",
-    markets: [
-      { flag: "🇯🇵", country: "Japón", exchange: "Bolsa de Tokio", index: "^N225", indexName: "Nikkei 225", etf: "EWJ" },
-      { flag: "🇨🇳", country: "China", exchange: "Shanghái / Shenzhen", index: "000001.SS", indexName: "Shanghai Composite", etf: "MCHI" },
-      { flag: "🇭🇰", country: "Hong Kong", exchange: "Bolsa de Hong Kong", index: "^HSI", indexName: "Hang Seng", etf: "EWH" },
-      { flag: "🇮🇳", country: "India", exchange: "NSE Bombay", index: "^NSEI", indexName: "Nifty 50", etf: "INDA" },
-      { flag: "🇰🇷", country: "Corea del Sur", exchange: "Bolsa de Corea", index: "^KS11", indexName: "KOSPI", etf: "EWY" },
-      { flag: "🇹🇼", country: "Taiwán", exchange: "Bolsa de Taiwán", index: "^TWII", indexName: "TAIEX", etf: "EWT" },
-      { flag: "🇸🇬", country: "Singapur", exchange: "SGX", index: "^STI", indexName: "STI", etf: "EWS" },
-      { flag: "🇦🇺", country: "Australia", exchange: "ASX Sídney", index: "^AXJO", indexName: "S&P/ASX 200", etf: "EWA" },
-    ],
-  },
-  {
-    region: "Medio Oriente y África",
-    markets: [
-      { flag: "🇸🇦", country: "Arabia Saudita", exchange: "Tadawul", index: null, indexName: "TASI", etf: "KSA" },
-      { flag: "🇮🇱", country: "Israel", exchange: "Bolsa de Tel Aviv", index: null, indexName: "TA-125", etf: "EIS" },
-      { flag: "🇿🇦", country: "Sudáfrica", exchange: "Bolsa de Johannesburgo", index: null, indexName: "JSE", etf: "EZA" },
-    ],
-  },
-];
+// Catálogo del menú "Invertir".
+//
+// Cada bolsa tiene:
+// - stocks: principales empresas. `local` = símbolo en su bolsa (precio en moneda local, SOLO CONSULTA, fuente Yahoo).
+//           `adr` = la misma empresa listada en EE. UU. → SE PUEDE COMPRAR con Alpaca en dólares.
+// - etfs:   fondos listados en EE. UU. que replican esa bolsa → SE PUEDEN COMPRAR.
+// - index:  índice local (solo informativo).
 
 export const CRYPTO = [
   { symbol: "BTC/USD", name: "Bitcoin" },
@@ -95,4 +15,468 @@ export const CRYPTO = [
   { symbol: "DOGE/USD", name: "Dogecoin" },
   { symbol: "LINK/USD", name: "Chainlink" },
   { symbol: "AVAX/USD", name: "Avalanche" },
+  { symbol: "DOT/USD", name: "Polkadot" },
+  { symbol: "UNI/USD", name: "Uniswap" },
+];
+
+// Wall Street (NYSE y Nasdaq): todo se puede comprar
+export const WALL_STREET = {
+  id: "us",
+  flag: "🇺🇸",
+  country: "Estados Unidos",
+  exchange: "Wall Street · NYSE y Nasdaq",
+  indices: [
+    { name: "S&P 500", index: "^GSPC" },
+    { name: "Nasdaq 100", index: "^NDX" },
+    { name: "Dow Jones", index: "^DJI" },
+    { name: "Russell 2000", index: "^RUT" },
+  ],
+  sectors: [
+    {
+      name: "Tecnología",
+      stocks: [
+        { symbol: "AAPL", name: "Apple" },
+        { symbol: "MSFT", name: "Microsoft" },
+        { symbol: "NVDA", name: "Nvidia" },
+        { symbol: "GOOGL", name: "Alphabet (Google)" },
+        { symbol: "META", name: "Meta" },
+        { symbol: "AMZN", name: "Amazon" },
+        { symbol: "AVGO", name: "Broadcom" },
+        { symbol: "AMD", name: "AMD" },
+        { symbol: "ORCL", name: "Oracle" },
+        { symbol: "CRM", name: "Salesforce" },
+        { symbol: "NFLX", name: "Netflix" },
+        { symbol: "PLTR", name: "Palantir" },
+      ],
+    },
+    {
+      name: "Finanzas",
+      stocks: [
+        { symbol: "BRK.B", name: "Berkshire Hathaway" },
+        { symbol: "JPM", name: "JPMorgan" },
+        { symbol: "V", name: "Visa" },
+        { symbol: "MA", name: "Mastercard" },
+        { symbol: "BAC", name: "Bank of America" },
+        { symbol: "GS", name: "Goldman Sachs" },
+      ],
+    },
+    {
+      name: "Consumo y salud",
+      stocks: [
+        { symbol: "TSLA", name: "Tesla" },
+        { symbol: "WMT", name: "Walmart" },
+        { symbol: "KO", name: "Coca-Cola" },
+        { symbol: "PEP", name: "PepsiCo" },
+        { symbol: "MCD", name: "McDonald's" },
+        { symbol: "NKE", name: "Nike" },
+        { symbol: "DIS", name: "Disney" },
+        { symbol: "JNJ", name: "Johnson & Johnson" },
+        { symbol: "LLY", name: "Eli Lilly" },
+        { symbol: "PFE", name: "Pfizer" },
+      ],
+    },
+    {
+      name: "Energía e industria",
+      stocks: [
+        { symbol: "XOM", name: "ExxonMobil" },
+        { symbol: "CVX", name: "Chevron" },
+        { symbol: "BA", name: "Boeing" },
+        { symbol: "CAT", name: "Caterpillar" },
+        { symbol: "GE", name: "GE Aerospace" },
+      ],
+    },
+  ],
+  etfs: [
+    { symbol: "SPY", name: "S&P 500" },
+    { symbol: "VOO", name: "S&P 500 (Vanguard)" },
+    { symbol: "QQQ", name: "Nasdaq 100" },
+    { symbol: "DIA", name: "Dow Jones" },
+    { symbol: "IWM", name: "Russell 2000 (pequeñas empresas)" },
+    { symbol: "VTI", name: "Todo el mercado de EE. UU." },
+    { symbol: "VT", name: "Todo el mercado mundial" },
+    { symbol: "SCHD", name: "Dividendos EE. UU." },
+    { symbol: "VNQ", name: "Bienes raíces (REIT)" },
+    { symbol: "XLK", name: "Sector tecnología" },
+    { symbol: "XLE", name: "Sector energía" },
+    { symbol: "GLD", name: "Oro" },
+    { symbol: "SLV", name: "Plata" },
+    { symbol: "TLT", name: "Bonos del Tesoro 20+ años" },
+  ],
+};
+
+const s = (name, local, adr) => ({ name, local, adr });
+const e = (symbol, name) => ({ symbol, name });
+
+export const WORLD = [
+  {
+    region: "Latinoamérica",
+    markets: [
+      {
+        id: "co", flag: "🇨🇴", country: "Colombia", exchange: "Bolsa de Valores de Colombia", index: null, indexName: "COLCAP",
+        etfs: [e("COLO", "MSCI Colombia (Global X)")],
+        stocks: [
+          s("Ecopetrol", "ECOPETROL.CL", "EC"),
+          s("Grupo Cibest (Bancolombia)", "PFCIBEST.CL", "CIB"),
+          s("Grupo Aval", "PFAVAL.CL", "AVAL"),
+          s("Tecnoglass", null, "TGLS"),
+          s("Grupo Energía Bogotá", "GEB.CL"),
+          s("ISA", "ISA.CL"),
+          s("Grupo Argos", "GRUPOARGOS.CL"),
+          s("Cementos Argos", "CEMARGOS.CL"),
+          s("Promigas", "PROMIGAS.CL"),
+          s("Celsia", "CELSIA.CL"),
+          s("Davivienda", "PFDAVVNDA.CL"),
+          s("Mineros", "MINEROS.CL"),
+          s("Terpel", "TERPEL.CL"),
+        ],
+      },
+      {
+        id: "br", flag: "🇧🇷", country: "Brasil", exchange: "B3 São Paulo", index: "^BVSP", indexName: "Ibovespa",
+        etfs: [e("EWZ", "MSCI Brasil (iShares)"), e("EWZS", "Brasil pequeñas empresas")],
+        stocks: [
+          s("Petrobras", "PETR4.SA", "PBR"),
+          s("Vale", "VALE3.SA", "VALE"),
+          s("Itaú Unibanco", "ITUB4.SA", "ITUB"),
+          s("Bradesco", "BBDC4.SA", "BBD"),
+          s("Ambev", "ABEV3.SA", "ABEV"),
+          s("Banco do Brasil", "BBAS3.SA"),
+          s("WEG", "WEGE3.SA"),
+          s("B3", "B3SA3.SA"),
+          s("Embraer", "EMBR3.SA", "ERJ"),
+          s("Gerdau", "GGBR4.SA", "GGB"),
+          s("Nu Holdings (Nubank)", null, "NU"),
+        ],
+      },
+      {
+        id: "mx", flag: "🇲🇽", country: "México", exchange: "Bolsa Mexicana de Valores", index: "^MXX", indexName: "S&P/BMV IPC",
+        etfs: [e("EWW", "MSCI México (iShares)")],
+        stocks: [
+          s("América Móvil", "AMXB.MX", "AMX"),
+          s("Walmart de México", "WALMEX.MX"),
+          s("FEMSA", "FEMSAUBD.MX", "FMX"),
+          s("Banorte", "GFNORTEO.MX"),
+          s("Cemex", "CEMEXCPO.MX", "CX"),
+          s("Grupo México", "GMEXICOB.MX"),
+          s("Grupo Bimbo", "BIMBOA.MX"),
+          s("Coca-Cola FEMSA", "KOFUBL.MX", "KOF"),
+          s("Grupo Aeroportuario del Pacífico", "GAPB.MX", "PAC"),
+        ],
+      },
+      {
+        id: "cl", flag: "🇨🇱", country: "Chile", exchange: "Bolsa de Santiago", index: null, indexName: "IPSA",
+        etfs: [e("ECH", "MSCI Chile (iShares)")],
+        stocks: [
+          s("SQM", "SQM-B.SN", "SQM"),
+          s("Banco de Chile", "CHILE.SN", "BCH"),
+          s("Banco Santander Chile", "BSANTANDER.SN", "BSAC"),
+          s("LATAM Airlines", "LTM.SN", "LTM"),
+          s("Falabella", "FALABELLA.SN"),
+          s("Copec", "COPEC.SN"),
+          s("Cencosud", "CENCOSUD.SN"),
+          s("Enel Chile", "ENELCHILE.SN", "ENIC"),
+        ],
+      },
+      {
+        id: "pe", flag: "🇵🇪", country: "Perú", exchange: "Bolsa de Valores de Lima", index: null, indexName: "S&P/BVL",
+        etfs: [e("EPU", "MSCI Perú (iShares)")],
+        stocks: [
+          s("Credicorp", null, "BAP"),
+          s("Southern Copper", null, "SCCO"),
+          s("Buenaventura", null, "BVN"),
+          s("Intercorp Financial", null, "IFS"),
+        ],
+      },
+      {
+        id: "ar", flag: "🇦🇷", country: "Argentina", exchange: "BYMA Buenos Aires", index: "^MERV", indexName: "Merval",
+        etfs: [e("ARGT", "MSCI Argentina (Global X)")],
+        stocks: [
+          s("MercadoLibre", null, "MELI"),
+          s("YPF", "YPFD.BA", "YPF"),
+          s("Grupo Galicia", "GGAL.BA", "GGAL"),
+          s("Pampa Energía", "PAMP.BA", "PAM"),
+          s("Banco Macro", "BMA.BA", "BMA"),
+          s("Telecom Argentina", "TECO2.BA", "TEO"),
+          s("Central Puerto", "CEPU.BA", "CEPU"),
+          s("Globant", null, "GLOB"),
+          s("Vista Energy", null, "VIST"),
+        ],
+      },
+    ],
+  },
+  {
+    region: "Norteamérica",
+    markets: [
+      {
+        id: "ca", flag: "🇨🇦", country: "Canadá", exchange: "Bolsa de Toronto (TSX)", index: "^GSPTSE", indexName: "S&P/TSX",
+        etfs: [e("EWC", "MSCI Canadá (iShares)")],
+        stocks: [
+          s("Royal Bank of Canada", "RY.TO", "RY"),
+          s("TD Bank", "TD.TO", "TD"),
+          s("Shopify", "SHOP.TO", "SHOP"),
+          s("Enbridge", "ENB.TO", "ENB"),
+          s("Canadian National Railway", "CNR.TO", "CNI"),
+          s("Canadian Natural Resources", "CNQ.TO", "CNQ"),
+          s("Brookfield", "BN.TO", "BN"),
+          s("Bank of Montreal", "BMO.TO", "BMO"),
+        ],
+      },
+    ],
+  },
+  {
+    region: "Europa",
+    markets: [
+      {
+        id: "uk", flag: "🇬🇧", country: "Reino Unido", exchange: "Bolsa de Londres (LSE)", index: "^FTSE", indexName: "FTSE 100",
+        etfs: [e("EWU", "MSCI Reino Unido (iShares)")],
+        stocks: [
+          s("Shell", "SHEL.L", "SHEL"),
+          s("AstraZeneca", "AZN.L", "AZN"),
+          s("HSBC", "HSBA.L", "HSBC"),
+          s("Unilever", "ULVR.L", "UL"),
+          s("BP", "BP.L", "BP"),
+          s("GSK", "GSK.L", "GSK"),
+          s("Rio Tinto", "RIO.L", "RIO"),
+          s("Diageo", "DGE.L", "DEO"),
+          s("British American Tobacco", "BATS.L", "BTI"),
+        ],
+      },
+      {
+        id: "de", flag: "🇩🇪", country: "Alemania", exchange: "Bolsa de Fráncfort (Xetra)", index: "^GDAXI", indexName: "DAX",
+        etfs: [e("EWG", "MSCI Alemania (iShares)")],
+        stocks: [
+          s("SAP", "SAP.DE", "SAP"),
+          s("Siemens", "SIE.DE"),
+          s("Allianz", "ALV.DE"),
+          s("Deutsche Telekom", "DTE.DE"),
+          s("Mercedes-Benz", "MBG.DE"),
+          s("BMW", "BMW.DE"),
+          s("Volkswagen", "VOW3.DE"),
+          s("BASF", "BAS.DE"),
+          s("Adidas", "ADS.DE"),
+          s("Deutsche Bank", "DBK.DE", "DB"),
+        ],
+      },
+      {
+        id: "fr", flag: "🇫🇷", country: "Francia", exchange: "Euronext París", index: "^FCHI", indexName: "CAC 40",
+        etfs: [e("EWQ", "MSCI Francia (iShares)")],
+        stocks: [
+          s("LVMH", "MC.PA"),
+          s("TotalEnergies", "TTE.PA", "TTE"),
+          s("Sanofi", "SAN.PA", "SNY"),
+          s("L'Oréal", "OR.PA"),
+          s("Hermès", "RMS.PA"),
+          s("Airbus", "AIR.PA"),
+          s("BNP Paribas", "BNP.PA"),
+          s("Schneider Electric", "SU.PA"),
+        ],
+      },
+      {
+        id: "es", flag: "🇪🇸", country: "España", exchange: "Bolsa de Madrid", index: "^IBEX", indexName: "IBEX 35",
+        etfs: [e("EWP", "MSCI España (iShares)")],
+        stocks: [
+          s("Inditex (Zara)", "ITX.MC"),
+          s("Banco Santander", "SAN.MC", "SAN"),
+          s("BBVA", "BBVA.MC", "BBVA"),
+          s("Iberdrola", "IBE.MC"),
+          s("Telefónica", "TEF.MC", "TEF"),
+          s("Repsol", "REP.MC"),
+          s("Aena", "AENA.MC"),
+        ],
+      },
+      {
+        id: "it", flag: "🇮🇹", country: "Italia", exchange: "Bolsa de Milán", index: "FTSEMIB.MI", indexName: "FTSE MIB",
+        etfs: [e("EWI", "MSCI Italia (iShares)")],
+        stocks: [
+          s("Ferrari", "RACE.MI", "RACE"),
+          s("Stellantis", "STLAM.MI", "STLA"),
+          s("Enel", "ENEL.MI"),
+          s("Intesa Sanpaolo", "ISP.MI"),
+          s("UniCredit", "UCG.MI"),
+          s("Eni", "ENI.MI"),
+        ],
+      },
+      {
+        id: "ch", flag: "🇨🇭", country: "Suiza", exchange: "SIX Zúrich", index: "^SSMI", indexName: "SMI",
+        etfs: [e("EWL", "MSCI Suiza (iShares)")],
+        stocks: [
+          s("Nestlé", "NESN.SW"),
+          s("Novartis", "NOVN.SW", "NVS"),
+          s("Roche", "ROG.SW"),
+          s("UBS", "UBSG.SW", "UBS"),
+          s("Zurich Insurance", "ZURN.SW"),
+          s("ABB", "ABBN.SW"),
+        ],
+      },
+      {
+        id: "nl", flag: "🇳🇱", country: "Países Bajos", exchange: "Euronext Ámsterdam", index: "^AEX", indexName: "AEX",
+        etfs: [e("EWN", "MSCI Países Bajos (iShares)")],
+        stocks: [
+          s("ASML", "ASML.AS", "ASML"),
+          s("ING", "INGA.AS", "ING"),
+          s("Philips", "PHIA.AS", "PHG"),
+          s("Heineken", "HEIA.AS"),
+          s("Prosus", "PRX.AS"),
+          s("Ahold Delhaize", "AD.AS"),
+        ],
+      },
+      {
+        id: "eu", flag: "🇪🇺", country: "Eurozona", exchange: "Grandes empresas de la zona euro", index: "^STOXX50E", indexName: "Euro Stoxx 50",
+        etfs: [e("EZU", "MSCI Eurozona (iShares)"), e("VGK", "Toda Europa (Vanguard)"), e("FEZ", "Euro Stoxx 50 (SPDR)")],
+        stocks: [],
+      },
+    ],
+  },
+  {
+    region: "Asia y Oceanía",
+    markets: [
+      {
+        id: "jp", flag: "🇯🇵", country: "Japón", exchange: "Bolsa de Tokio", index: "^N225", indexName: "Nikkei 225",
+        etfs: [e("EWJ", "MSCI Japón (iShares)"), e("DXJ", "Japón con cobertura de divisa")],
+        stocks: [
+          s("Toyota", "7203.T", "TM"),
+          s("Sony", "6758.T", "SONY"),
+          s("Mitsubishi UFJ", "8306.T", "MUFG"),
+          s("Honda", "7267.T", "HMC"),
+          s("SoftBank Group", "9984.T"),
+          s("Keyence", "6861.T"),
+          s("Nintendo", "7974.T"),
+          s("Tokyo Electron", "8035.T"),
+          s("Hitachi", "6501.T"),
+        ],
+      },
+      {
+        id: "cn", flag: "🇨🇳", country: "China", exchange: "Shanghái y Shenzhen", index: "000001.SS", indexName: "Shanghai Composite",
+        etfs: [e("MCHI", "MSCI China (iShares)"), e("FXI", "China grandes empresas"), e("KWEB", "Internet China"), e("ASHR", "Acciones A de China")],
+        stocks: [
+          s("Kweichow Moutai", "600519.SS"),
+          s("CATL (baterías)", "300750.SZ"),
+          s("BYD", "002594.SZ"),
+          s("ICBC", "601398.SS"),
+          s("Ping An Insurance", "601318.SS"),
+          s("Alibaba", null, "BABA"),
+          s("PDD (Temu)", null, "PDD"),
+          s("JD.com", null, "JD"),
+          s("Baidu", null, "BIDU"),
+          s("NIO", null, "NIO"),
+        ],
+      },
+      {
+        id: "hk", flag: "🇭🇰", country: "Hong Kong", exchange: "Bolsa de Hong Kong", index: "^HSI", indexName: "Hang Seng",
+        etfs: [e("EWH", "MSCI Hong Kong (iShares)")],
+        stocks: [
+          s("Tencent", "0700.HK"),
+          s("Alibaba", "9988.HK", "BABA"),
+          s("AIA", "1299.HK"),
+          s("HSBC", "0005.HK", "HSBC"),
+          s("Meituan", "3690.HK"),
+          s("Xiaomi", "1810.HK"),
+          s("China Mobile", "0941.HK"),
+        ],
+      },
+      {
+        id: "in", flag: "🇮🇳", country: "India", exchange: "NSE (Bolsa Nacional de India)", index: "^NSEI", indexName: "Nifty 50",
+        etfs: [e("INDA", "MSCI India (iShares)"), e("EPI", "India (WisdomTree)")],
+        stocks: [
+          s("Reliance Industries", "RELIANCE.NS"),
+          s("Tata Consultancy (TCS)", "TCS.NS"),
+          s("HDFC Bank", "HDFCBANK.NS", "HDB"),
+          s("Infosys", "INFY.NS", "INFY"),
+          s("ICICI Bank", "ICICIBANK.NS", "IBN"),
+          s("Wipro", "WIPRO.NS", "WIT"),
+          s("Bharti Airtel", "BHARTIARTL.NS"),
+          s("State Bank of India", "SBIN.NS"),
+        ],
+      },
+      {
+        id: "kr", flag: "🇰🇷", country: "Corea del Sur", exchange: "Bolsa de Corea (KRX)", index: "^KS11", indexName: "KOSPI",
+        etfs: [e("EWY", "MSCI Corea (iShares)")],
+        stocks: [
+          s("Samsung Electronics", "005930.KS"),
+          s("SK Hynix", "000660.KS"),
+          s("Hyundai Motor", "005380.KS"),
+          s("Naver", "035420.KS"),
+          s("POSCO", "005490.KS", "PKX"),
+          s("KB Financial", "105560.KS", "KB"),
+          s("Shinhan Financial", "055550.KS", "SHG"),
+        ],
+      },
+      {
+        id: "tw", flag: "🇹🇼", country: "Taiwán", exchange: "Bolsa de Taiwán", index: "^TWII", indexName: "TAIEX",
+        etfs: [e("EWT", "MSCI Taiwán (iShares)")],
+        stocks: [
+          s("TSMC", "2330.TW", "TSM"),
+          s("Foxconn (Hon Hai)", "2317.TW"),
+          s("MediaTek", "2454.TW"),
+          s("UMC", "2303.TW", "UMC"),
+          s("ASE Technology", "3711.TW", "ASX"),
+          s("Delta Electronics", "2308.TW"),
+        ],
+      },
+      {
+        id: "sg", flag: "🇸🇬", country: "Singapur", exchange: "SGX", index: "^STI", indexName: "STI",
+        etfs: [e("EWS", "MSCI Singapur (iShares)")],
+        stocks: [
+          s("DBS", "D05.SI"),
+          s("OCBC", "O39.SI"),
+          s("UOB", "U11.SI"),
+          s("Singtel", "Z74.SI"),
+          s("Singapore Airlines", "C6L.SI"),
+          s("Sea Limited", null, "SE"),
+          s("Grab", null, "GRAB"),
+        ],
+      },
+      {
+        id: "au", flag: "🇦🇺", country: "Australia", exchange: "ASX Sídney", index: "^AXJO", indexName: "S&P/ASX 200",
+        etfs: [e("EWA", "MSCI Australia (iShares)")],
+        stocks: [
+          s("Commonwealth Bank", "CBA.AX"),
+          s("BHP", "BHP.AX", "BHP"),
+          s("CSL", "CSL.AX"),
+          s("National Australia Bank", "NAB.AX"),
+          s("Westpac", "WBC.AX"),
+          s("Macquarie", "MQG.AX"),
+          s("Wesfarmers", "WES.AX"),
+        ],
+      },
+    ],
+  },
+  {
+    region: "Medio Oriente y África",
+    markets: [
+      {
+        id: "sa", flag: "🇸🇦", country: "Arabia Saudita", exchange: "Tadawul", index: null, indexName: "TASI",
+        etfs: [e("KSA", "MSCI Arabia Saudita (iShares)")],
+        stocks: [
+          s("Saudi Aramco", "2222.SR"),
+          s("Al Rajhi Bank", "1120.SR"),
+          s("SABIC", "2010.SR"),
+          s("STC", "7010.SR"),
+          s("Saudi National Bank", "1180.SR"),
+        ],
+      },
+      {
+        id: "il", flag: "🇮🇱", country: "Israel", exchange: "Bolsa de Tel Aviv", index: null, indexName: "TA-125",
+        etfs: [e("EIS", "MSCI Israel (iShares)")],
+        stocks: [
+          s("Teva", "TEVA.TA", "TEVA"),
+          s("NICE", "NICE.TA", "NICE"),
+          s("Elbit Systems", "ESLT.TA", "ESLT"),
+          s("Check Point", null, "CHKP"),
+          s("Bank Leumi", "LUMI.TA"),
+        ],
+      },
+      {
+        id: "za", flag: "🇿🇦", country: "Sudáfrica", exchange: "Bolsa de Johannesburgo (JSE)", index: null, indexName: "JSE",
+        etfs: [e("EZA", "MSCI Sudáfrica (iShares)")],
+        stocks: [
+          s("Naspers", "NPN.JO"),
+          s("FirstRand", "FSR.JO"),
+          s("Standard Bank", "SBK.JO"),
+          s("MTN Group", "MTN.JO"),
+          s("Gold Fields", "GFI.JO", "GFI"),
+          s("Sasol", "SOL.JO", "SSL"),
+        ],
+      },
+    ],
+  },
 ];

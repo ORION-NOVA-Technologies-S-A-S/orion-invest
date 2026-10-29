@@ -30,7 +30,11 @@ async function fetchOne(symbol: string): Promise<IndexQuote | null> {
     const meta = j?.chart?.result?.[0]?.meta;
     if (meta) {
       const price = Number(meta.regularMarketPrice);
-      const prev = Number(meta.chartPreviousClose ?? meta.previousClose);
+      // Cierre del día anterior = penúltima barra diaria (chartPreviousClose es el cierre de hace 5 días)
+      const closes = ((j.chart.result[0].indicators?.quote?.[0]?.close ?? []) as (number | null)[]).filter(
+        (c): c is number => c != null,
+      );
+      const prev = Number(closes.length >= 2 ? closes[closes.length - 2] : meta.previousClose ?? meta.chartPreviousClose);
       const reg = meta.currentTradingPeriod?.regular;
       const now = Date.now() / 1000;
       data = {
