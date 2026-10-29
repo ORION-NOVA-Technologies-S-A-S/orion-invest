@@ -126,8 +126,15 @@ export function alpacaFor(mode: Mode) {
     account: () => trade("/v2/account"),
     positions: () => trade("/v2/positions"),
     // "1D" (hoy) se pide cada 5 minutos para verlo en vivo; el resto, un punto por día
+    // "continuous" incluye las 24 h (cripto), no solo el horario de la bolsa
     history: (period: string) =>
-      trade("/v2/account/portfolio/history", {}, { period, timeframe: period === "1D" ? "5Min" : "1D" }),
+      trade(
+        "/v2/account/portfolio/history",
+        {},
+        period === "1D"
+          ? { period, timeframe: "5Min", intraday_reporting: "continuous" }
+          : { period, timeframe: "1D" },
+      ),
     orders: () => trade("/v2/orders", {}, { status: "all", limit: "50", direction: "desc" }),
     submitOrder: (payload: unknown) => trade("/v2/orders", { method: "POST", body: JSON.stringify(payload) }),
     cancelOrder: (id: string) => trade(`/v2/orders/${enc(id)}`, { method: "DELETE" }),

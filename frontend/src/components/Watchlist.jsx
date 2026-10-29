@@ -63,12 +63,14 @@ export default function Watchlist({ selected, onSelect }) {
           const qt = quotes[s];
           return (
             <li key={s} className={s === selected ? "active" : ""} onClick={() => onSelect(s)}>
-              <span className="sym">
-                {s}
-                {s.includes("/") && <span className="tag">cripto</span>}
+              <span className="w-sym">
+                <strong>{s}</strong>
+                <span className="muted small">{s.includes("/") ? "Cripto" : "Acción / ETF"}</span>
               </span>
-              <span className="mono">{usd(qt?.price, qt?.price < 1 ? 4 : 2)}</span>
-              <span className={`mono ${qt?.change_pct >= 0 ? "up" : "down"}`}>{pct(qt?.change_pct)}</span>
+              <span className="w-price">
+                <span className="mono">{usd(qt?.price, qt?.price < 1 ? 4 : 2)}</span>
+                <span className={`mono small ${qt?.change_pct >= 0 ? "up" : "down"}`}>{pct(qt?.change_pct)}</span>
+              </span>
               <button className="x" title="Quitar" onClick={(e) => remove(s, e)}>
                 ×
               </button>
