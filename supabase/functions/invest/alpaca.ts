@@ -88,6 +88,30 @@ export const alpaca = {
     };
   },
 
+  // Precio y variación de muchos símbolos en 1-2 llamadas (acciones/ETF y cripto por separado)
+  async snapshots(symbols: string[]) {
+    const stocks = symbols.filter((s) => !isCrypto(s));
+    const cryptos = symbols.filter(isCrypto);
+    // deno-lint-ignore no-explicit-any
+    const out: Record<string, any> = {};
+    // deno-lint-ignore no-explicit-any
+    const read = (s: string, snap: any) => {
+      if (!snap) return (out[s] = null);
+      const price = snap.latestTrade?.p ?? snap.dailyBar?.c ?? null;
+      const prev = snap.prevDailyBar?.c ?? null;
+      out[s] = { price, change_pct: price != null && prev ? ((price - prev) / prev) * 100 : null };
+    };
+    const [st, cr] = await Promise.all([
+      stocks.length ? data("/v2/stocks/snapshots", { symbols: stocks.join(","), feed: FEED }) : null,
+      cryptos.length ? data("/v1beta3/crypto/us/snapshots", { symbols: cryptos.join(",") }) : null,
+    ]);
+    // deno-lint-ignore no-explicit-any
+    stocks.forEach((s) => read(s, (st as any)?.[s]));
+    // deno-lint-ignore no-explicit-any
+    cryptos.forEach((s) => read(s, (cr as any)?.snapshots?.[s]));
+    return out;
+  },
+
   async bars(symbol: string, days: number) {
     const start = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10) + "T00:00:00Z";
     // deno-lint-ignore no-explicit-any

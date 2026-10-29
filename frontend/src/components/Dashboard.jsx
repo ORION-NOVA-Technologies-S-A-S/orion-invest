@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, cop, pct, usd } from "../api.js";
 import LineChart from "./LineChart.jsx";
+import Markets from "./Markets.jsx";
 import Orders from "./Orders.jsx";
 import Positions from "./Positions.jsx";
 import QuotePanel from "./QuotePanel.jsx";
@@ -18,6 +19,14 @@ export default function Dashboard({ me, onLogout }) {
   const [selected, setSelected] = useState("VOO");
   const [error, setError] = useState("");
   const [fx, setFx] = useState(null); // { usd_cop, updated }
+  const [view, setView] = useState("inicio"); // inicio | mercados
+  const [picked, setPicked] = useState(false); // ¿eligió un activo desde Mercados?
+
+  const pickFromMarkets = (symbol) => {
+    setSelected(symbol);
+    setPicked(true);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   useEffect(() => {
     const load = () => api.fx().then(setFx).catch(() => {});
@@ -66,8 +75,44 @@ export default function Dashboard({ me, onLogout }) {
         </button>
       </header>
 
+      <nav className="menu">
+        <button className={view === "inicio" ? "on" : ""} onClick={() => setView("inicio")}>
+          Mi portafolio
+        </button>
+        <button
+          className={view === "mercados" ? "on" : ""}
+          onClick={() => {
+            setView("mercados");
+            setPicked(false);
+          }}
+        >
+          Mercados
+        </button>
+      </nav>
+
       {error && <p className="error banner">{error}</p>}
 
+      {view === "mercados" && (
+        <div className="grid">
+          <div className="col">
+            {picked && (
+              <>
+                <button className="link back" onClick={() => setPicked(false)}>
+                  ← Volver a mercados
+                </button>
+                <QuotePanel symbol={selected} me={me} rate={rate} onOrderPlaced={refresh} />
+              </>
+            )}
+            {!picked && <Markets rate={rate} onSelect={pickFromMarkets} />}
+          </div>
+          <div className="col">
+            <Watchlist selected={selected} onSelect={pickFromMarkets} />
+          </div>
+        </div>
+      )}
+
+      {view === "inicio" && (
+      <>
       <section className="card summary">
         <span className="muted">Valor total del portafolio</span>
         <div className="big mono">{usd(account?.equity)}</div>
@@ -121,6 +166,8 @@ export default function Dashboard({ me, onLogout }) {
           <Orders orders={orders} onChange={refresh} />
         </div>
       </div>
+      </>
+      )}
 
       <footer className="muted small foot">
         Orion Nova Technologies · Operado a través de Alpaca Securities. Invertir implica riesgo de pérdida.

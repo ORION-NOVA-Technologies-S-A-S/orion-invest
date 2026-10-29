@@ -79,6 +79,30 @@ label { display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; col
 .seg button.on.sell { background: var(--down); color: #1a0409; }
 .order-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .seg.currency { margin-bottom: 0; }
+
+/* Menú principal */
+.menu { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 4px; margin-bottom: 16px; }
+.menu button { background: transparent; border: none; border-radius: 9px; padding: 10px; cursor: pointer; font-weight: 600; color: var(--muted); }
+.menu button.on { background: var(--accent); color: #0b0f17; }
+.back { display: inline-block; margin-bottom: 10px; }
+
+/* Mercados */
+.tabs.scroll { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; scrollbar-width: none; }
+.tabs.scroll button { white-space: nowrap; flex: 0 0 auto; }
+.tabs.sub button { font-size: 0.85rem; }
+.mk-title { font-size: 0.9rem; color: var(--muted); margin: 18px 0 4px; font-weight: 600; }
+.mk-indices { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-top: 8px; }
+.mk-index { display: flex; flex-direction: column; gap: 2px; background: var(--panel-2); border-radius: 10px; padding: 10px; }
+.mk-list { list-style: none; padding: 0; margin: 0; }
+.mk-row { display: grid; grid-template-columns: 1fr auto 72px; gap: 10px; align-items: center; padding: 10px 6px; border-bottom: 1px solid var(--line); cursor: pointer; border-radius: 8px; }
+.mk-row:hover { background: var(--panel-2); }
+.mk-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-top: 10px; }
+.mk-card { border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.mk-card-head { display: flex; gap: 10px; align-items: center; }
+.flag { font-size: 1.6rem; line-height: 1; }
+.dot { font-size: 0.7rem; color: var(--muted); }
+.dot::before { content: "●"; margin-right: 4px; color: var(--down); }
+.dot.on::before { color: var(--up); }
 .seg.currency button.on { background: var(--accent); color: #0b0f17; }
 .order-grid .full { grid-column: 1 / -1; }
 

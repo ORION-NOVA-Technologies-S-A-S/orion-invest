@@ -7,6 +7,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import postgres from "npm:postgres@3.4.5";
 import { alpaca, ALPACA_ENV } from "./alpaca.ts";
 import { buildAlpacaOrder, checkOrder, cleanSymbol, HttpError, parseOrder, type RiskConfig } from "./risk.ts";
+import { indexQuotes } from "./yahoo.ts";
 
 const env = (k: string, d = "") => Deno.env.get(k) ?? d;
 const num = (k: string, d: number) => {
@@ -247,6 +248,15 @@ async function route(req: Request, userId: string): Promise<unknown> {
   }
 
   if (resource === "fx" && m === "GET") return await usdCop();
+
+  if (resource === "indices" && m === "GET") return await indexQuotes(url.searchParams.get("symbols"));
+
+  // Varias cotizaciones de Alpaca en una sola llamada (para el menú Mercados)
+  if (resource === "quotes" && m === "GET") {
+    const list = (url.searchParams.get("symbols") ?? "").split(",").filter(Boolean);
+    if (list.length === 0 || list.length > 40) throw new HttpError(400, "Entre 1 y 40 símbolos.");
+    return await alpaca.snapshots(list.map(cleanSymbol));
+  }
 
   throw new HttpError(404, "Ruta no encontrada.");
 }

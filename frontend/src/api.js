@@ -65,6 +65,8 @@ export const api = {
   addWatch: (symbol) => request("POST", `/watchlist?symbol=${q(symbol)}`),
   removeWatch: (symbol) => request("DELETE", `/watchlist?symbol=${q(symbol)}`),
   fx: () => request("GET", "/fx"),
+  quotes: (symbols) => request("GET", `/quotes?symbols=${symbols.map(q).join(",")}`),
+  indices: (symbols) => request("GET", `/indices?symbols=${symbols.map(q).join(",")}`),
 };
 
 // Pesos colombianos sin decimales. rate = cuántos COP vale 1 USD.
