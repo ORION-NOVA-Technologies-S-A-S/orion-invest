@@ -39,8 +39,8 @@ for (const r of WORLD) for (const m of r.markets) for (const e of m.etfs) BY_SYM
 // Empresas que solo cotizan en su bolsa local: se reconoce el sector por el nombre
 const BY_WORDS = [
   [/banc|bank|financ|cibest|aval|davivienda|credicorp|itaú|bradesco|santander|bbva|hsbc|dbs|ocbc|uob|icici|hdfc|leumi|firstrand|rajhi|macquarie|westpac|commonwealth|intesa|unicredit|bnp|ing\b|allianz|zurich|aia|ping an|insurance|seguros/i, "🏦"],
-  [/petro|oil|ecopetrol|aramco|repsol|eni\b|energ|terpel|copec|sasol|reliance/i, "🛢️"],
-  [/el[eé]ctric|enel|iberdrola|celsia|isa\b|geb|energía bogotá|power|delta/i, "⚡"],
+  [/el[eé]ctric|enel|iberdrola|celsia|\bisa\b|\bgeb\b|energía bogotá|energia bogota|power|delta/i, "⚡"],
+  [/petro|oil|ecopetrol|aramco|repsol|eni\b|terpel|copec|sasol|reliance/i, "🛢️"],
   [/gas|promigas/i, "🔥"],
   [/cement|cemex|argos|construc/i, "🏗️"],
   [/miner|mining|vale|rio tinto|bhp|gold|oro|grupo méxico/i, "⛏️"],

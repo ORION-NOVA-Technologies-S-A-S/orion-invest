@@ -61,38 +61,92 @@ function UsRow({ symbol, name, quote, rate, onSelect }) {
   const d = quote?.price < 1 ? 4 : 2;
   return (
     <li className="mk-row" onClick={() => onSelect(symbol)}>
-      <div className="with-ic">
+      <div className="with-ic mk-name">
         <AssetIcon symbol={symbol} name={name} />
-        <div>
+        <div className="mk-text">
           <strong>{symbol}</strong>
           <div className="muted small">{name}</div>
         </div>
       </div>
-      <div className="right">
-        <div className="mono">{usd(quote?.price, d)}</div>
-        <div className="muted small mono">{cop(quote?.price, rate)}</div>
-      </div>
-      <div className="right">
+      <div className="mk-price">
+        <span className="mono">{usd(quote?.price, d)}</span>
+        <span className="muted small mono">{cop(quote?.price, rate)}</span>
         <Change value={quote?.change_pct} />
       </div>
     </li>
   );
 }
 
-function LocalRow({ stock, local, adrQuote, rate, onSelect }) {
+// Cómo se compra directo una acción que solo cotiza en su bolsa local
+function BuyHelp({ market, onClose, onSelect }) {
+  const co = market.id === "co";
+  return (
+    <div className="modal-bg" onClick={onClose}>
+      <div className="modal card" onClick={(e) => e.stopPropagation()}>
+        <h3>¿Cómo comprar acciones de {market.country}?</h3>
+        <p className="muted">
+          Esta empresa solo cotiza en la {market.exchange}. Alpaca, el bróker que usa Orion Invest, solo opera en Estados
+          Unidos, por eso aquí puedes verla pero aún no comprarla directo.
+        </p>
+        <ol className="muted small steps">
+          <li>
+            <strong>Hoy, desde Orion Invest:</strong> invierte en toda la bolsa de {market.country} con el ETF{" "}
+            <strong>{market.etfs[0]?.symbol}</strong>, que incluye a las empresas más grandes del país.
+          </li>
+          {co ? (
+            <li>
+              <strong>Comprarla directo:</strong> las acciones de la BVC solo se compran a través de una{" "}
+              <strong>sociedad comisionista de bolsa</strong> vigilada por la Superintendencia Financiera (por ejemplo trii,
+              Acciones y Valores o la comisionista de tu banco).
+            </li>
+          ) : (
+            <li>
+              <strong>Comprarla directo:</strong> necesitas un bróker con acceso a esa bolsa (por ejemplo Interactive
+              Brokers).
+            </li>
+          )}
+          <li>
+            <strong>Próximamente aquí:</strong> cuando Orion Nova cierre una alianza con una comisionista, estas acciones se
+            podrán comprar desde la app.
+          </li>
+        </ol>
+        <div className="row">
+          <button className="btn" onClick={onClose}>
+            Cerrar
+          </button>
+          {market.etfs[0] && (
+            <button
+              className="btn primary"
+              onClick={() => {
+                onClose();
+                onSelect(market.etfs[0].symbol);
+              }}
+            >
+              Ver ETF {market.etfs[0].symbol}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LocalRow({ stock, local, adrQuote, rate, market, onSelect }) {
+  const [help, setHelp] = useState(false);
+  const etf = market.etfs[0]?.symbol;
   return (
     <li className="mk-stock">
       <div className="mk-stock-top">
-        <div className="with-ic">
+        <div className="with-ic mk-name">
           <AssetIcon symbol={stock.adr || stock.local} name={stock.name} />
-          <div>
+          <div className="mk-text">
             <strong>{stock.name}</strong>
             <div className="muted small">{stock.local ?? "Solo cotiza en EE. UU."}</div>
           </div>
         </div>
         {stock.local && (
-          <div className="right">
-            <div className="mono">{localMoney(local?.price, local?.currency)}</div>
+          <div className="mk-price">
+            <span className="mono">{localMoney(local?.price, local?.currency)}</span>
             {local ? <Change value={local.change_pct} /> : <span className="muted small">sin datos</span>}
           </div>
         )}
@@ -107,8 +161,19 @@ function LocalRow({ stock, local, adrQuote, rate, onSelect }) {
           </span>
         </button>
       ) : (
-        <p className="muted small mk-note">Solo consulta: esta empresa no cotiza en EE. UU., no se puede comprar con Alpaca.</p>
+        <div className="mk-actions">
+          <span className="chip">👁️ Solo consulta</span>
+          {etf && (
+            <button className="chip-btn" onClick={() => onSelect(etf)}>
+              Invertir vía ETF {etf}
+            </button>
+          )}
+          <button className="chip-btn ghost" onClick={() => setHelp(true)}>
+            ¿Cómo comprarla?
+          </button>
+        </div>
       )}
+      {help && <BuyHelp market={market} onClose={() => setHelp(false)} onSelect={onSelect} />}
     </li>
   );
 }
@@ -235,6 +300,7 @@ function ExchangeView({ market, isUS, rate, onSelect, onBack }) {
                     local={x.local ? local.data[x.local] : null}
                     adrQuote={x.adr ? us.data[x.adr] : null}
                     rate={rate}
+                    market={market}
                     onSelect={onSelect}
                   />
                 ))}
