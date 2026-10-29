@@ -1,19 +1,26 @@
 import { useEffect, useState } from "react";
-import { api, num, usd } from "../api.js";
+import { api, cop, num, usd } from "../api.js";
 
 const OPEN = ["new", "accepted", "pending_new", "partially_filled", "held"];
+const DONE = ["filled"];
 const STATUS = {
   filled: "Ejecutada",
   partially_filled: "Parcial",
   new: "Abierta",
-  accepted: "Aceptada",
+  accepted: "Pendiente",
   pending_new: "Pendiente",
+  held: "Pendiente",
   canceled: "Cancelada",
   expired: "Vencida",
   rejected: "Rechazada",
 };
+const FILTERS = [
+  { id: "open", label: "Pendientes", test: (o) => OPEN.includes(o.status) },
+  { id: "done", label: "Ejecutadas", test: (o) => DONE.includes(o.status) },
+  { id: "all", label: "Todas", test: () => true },
+];
 
-// "mañana 8:30 a. m." / "lunes 8:30 a. m." en hora de Colombia
+// "hoy a las 8:30 a. m." / "mañana…" / "lunes…" en hora de Colombia
 function whenOpens(iso) {
   if (!iso) return "cuando abra el mercado";
   const d = new Date(iso);
@@ -27,12 +34,23 @@ function whenOpens(iso) {
       : day(d) === day(tomorrow)
         ? "mañana"
         : d.toLocaleDateString("es-CO", { timeZone: "America/Bogota", weekday: "long" });
-  return `${label} a las ${time} (hora Colombia)`;
+  return `${label} a las ${time}`;
 }
 
-export default function Orders({ orders, onChange }) {
+const shortDate = (iso) =>
+  new Date(iso).toLocaleString("es-CO", {
+    timeZone: "America/Bogota",
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+export default function Orders({ orders, rate, onChange }) {
   const [error, setError] = useState("");
   const [clock, setClock] = useState(null);
+  const [filter, setFilter] = useState("open");
+  const [canceling, setCanceling] = useState(null);
 
   useEffect(() => {
     const load = () => api.clock().then(setClock).catch(() => {});
@@ -43,59 +61,92 @@ export default function Orders({ orders, onChange }) {
 
   async function cancel(id) {
     setError("");
+    setCanceling(id);
     try {
       await api.cancelOrder(id);
       onChange();
     } catch (e) {
       setError(e.message);
+    } finally {
+      setCanceling(null);
     }
   }
 
+  const counts = Object.fromEntries(FILTERS.map((f) => [f.id, orders.filter(f.test).length]));
+  const list = orders.filter(FILTERS.find((f) => f.id === filter).test).slice(0, 25);
+
   return (
     <section className="card">
-      <h2>Órdenes recientes</h2>
+      <div className="ord-head">
+        <h2>Mis órdenes</h2>
+        {clock && (
+          <span className={`market ${clock.is_open ? "open" : ""}`}>
+            {clock.is_open ? "Bolsa abierta" : "Bolsa cerrada"}
+          </span>
+        )}
+      </div>
+
+      <div className="seg three ord-tabs">
+        {FILTERS.map((f) => (
+          <button key={f.id} className={filter === f.id ? "on" : ""} onClick={() => setFilter(f.id)}>
+            {f.label} ({counts[f.id]})
+          </button>
+        ))}
+      </div>
+
       {error && <p className="error">{error}</p>}
-      {orders.length === 0 ? (
-        <p className="muted">Sin órdenes todavía.</p>
+
+      {list.length === 0 ? (
+        <p className="muted">
+          {filter === "open" ? "No tienes órdenes pendientes." : filter === "done" ? "Aún no hay órdenes ejecutadas." : "Sin órdenes todavía."}
+        </p>
       ) : (
-        <ul className="orders">
-          {orders.slice(0, 25).map((o) => {
+        <ul className="ord-list">
+          {list.map((o) => {
             const pending = OPEN.includes(o.status);
             const waitsMarket = pending && !o.symbol.includes("/") && clock && !clock.is_open;
+            const amount = o.notional ? +o.notional : o.filled_avg_price ? +o.qty * +o.filled_avg_price : null;
             return (
-              <li key={o.id}>
-                <div>
-                  <span className={o.side === "buy" ? "up" : "down"}>{o.side === "buy" ? "Compra" : "Venta"}</span>{" "}
-                  <strong>{o.symbol}</strong>
-                  <div className="muted small">
-                    {o.notional ? usd(+o.notional) : `${num(o.qty)} u.`}
-                    {o.filled_avg_price && ` · a ${usd(+o.filled_avg_price)}`}
-                    {o.submitted_at && ` · ${new Date(o.submitted_at).toLocaleString("es-CO")}`}
+              <li key={o.id} className="ord">
+                <div className="ord-top">
+                  <div>
+                    <span className={`side ${o.side}`}>{o.side === "buy" ? "Compra" : "Venta"}</span>
+                    <strong className="ord-sym">{o.symbol}</strong>
                   </div>
-                  {waitsMarket && (
-                    <div className="wait small">
-                      ⏳ La bolsa está cerrada. Se ejecuta {whenOpens(clock.next_open)}.
-                    </div>
-                  )}
-                </div>
-                <div className="right">
                   <span className={`pill ${o.status}`}>{STATUS[o.status] || o.status}</span>
-                  {pending && (
-                    <button className="link" onClick={() => cancel(o.id)}>
-                      Cancelar
-                    </button>
-                  )}
                 </div>
+
+                <div className="ord-info">
+                  <div>
+                    <span className="muted small">Monto</span>
+                    <span className="mono">{o.notional ? usd(+o.notional) : `${num(o.qty)} u.`}</span>
+                    {amount != null && <span className="muted small mono">{cop(amount, rate)}</span>}
+                  </div>
+                  <div>
+                    <span className="muted small">{o.filled_avg_price ? "Precio ejecutado" : "Fecha"}</span>
+                    <span className="mono">
+                      {o.filled_avg_price ? usd(+o.filled_avg_price) : o.submitted_at ? shortDate(o.submitted_at) : "—"}
+                    </span>
+                  </div>
+                </div>
+
+                {waitsMarket && (
+                  <p className="ord-wait">⏳ La bolsa está cerrada. Se ejecuta {whenOpens(clock.next_open)} (hora Colombia).</p>
+                )}
+
+                {pending && (
+                  <button className="btn ghost-danger" onClick={() => cancel(o.id)} disabled={canceling === o.id}>
+                    {canceling === o.id ? "Cancelando…" : "Cancelar orden"}
+                  </button>
+                )}
               </li>
             );
           })}
         </ul>
       )}
-      {clock && (
-        <p className="muted small">
-          Bolsa de EE. UU.: {clock.is_open ? "🟢 abierta" : `🔴 cerrada · abre ${whenOpens(clock.next_open)}`}. Las
-          criptomonedas operan 24/7.
-        </p>
+
+      {clock && !clock.is_open && (
+        <p className="muted small">La bolsa de EE. UU. abre {whenOpens(clock.next_open)} (hora Colombia). Las criptomonedas operan 24/7.</p>
       )}
     </section>
   );

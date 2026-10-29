@@ -118,6 +118,28 @@ label { display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; col
 .steps { padding-left: 18px; display: grid; gap: 6px; }
 .wait { color: var(--warn); margin-top: 4px; }
 
+/* Mis órdenes */
+.pill { white-space: nowrap; }
+.ord-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.ord-head h2 { margin: 0; }
+.market { font-size: 0.75rem; font-weight: 600; white-space: nowrap; color: var(--down); }
+.market::before { content: "●"; margin-right: 4px; }
+.market.open { color: var(--up); }
+.ord-tabs { margin: 12px 0; }
+.ord-tabs button { font-size: 0.8rem; padding: 8px 4px; }
+.ord-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.ord { background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.ord-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.side { font-size: 0.75rem; font-weight: 700; padding: 3px 8px; border-radius: 6px; margin-right: 8px; }
+.side.buy { background: color-mix(in srgb, var(--up) 18%, transparent); color: var(--up); }
+.side.sell { background: color-mix(in srgb, var(--down) 18%, transparent); color: var(--down); }
+.ord-sym { font-size: 1.05rem; }
+.ord-info { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ord-info > div { display: flex; flex-direction: column; gap: 2px; }
+.ord-wait { margin: 0; font-size: 0.82rem; color: var(--warn); background: color-mix(in srgb, var(--warn) 10%, transparent); border-radius: 8px; padding: 8px 10px; }
+.pill.accepted, .pill.new, .pill.pending_new, .pill.held { color: var(--warn); }
+.btn.ghost-danger { background: transparent; border: 1px solid var(--down); color: var(--down); width: 100%; padding: 8px; }
+
 /* Menú principal */
 .menu { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 4px; margin-bottom: 16px; }
 .menu button { background: transparent; border: none; border-radius: 9px; padding: 10px; cursor: pointer; font-weight: 600; color: var(--muted); }

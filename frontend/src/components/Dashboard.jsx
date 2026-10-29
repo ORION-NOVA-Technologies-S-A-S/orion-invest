@@ -171,7 +171,7 @@ export default function Dashboard({ me, onLogout }) {
           <div className="grid">
             <div className="col">
               <Positions positions={positions} rate={rate} onSelect={openAsset} />
-              <Orders orders={orders} onChange={refresh} />
+              <Orders orders={orders} rate={rate} onChange={refresh} />
             </div>
             <div className="col">
               <Allocation positions={positions} cash={account?.cash} rate={rate} />
