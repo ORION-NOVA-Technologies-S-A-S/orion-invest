@@ -80,6 +80,33 @@ label { display: flex; flex-direction: column; gap: 6px; font-size: 0.85rem; col
 .order-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .seg.currency { margin-bottom: 0; }
 
+/* Login */
+.login-wrap { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 16px; }
+.login-hero { text-align: center; }
+.login-hero h1 { font-size: 1.7rem; margin: 6px 0; }
+.big-mark { font-size: 2.6rem; }
+.login-card h2 { font-size: 1.1rem; margin: 0; }
+.pass { position: relative; }
+.pass input { padding-right: 70px; }
+.pass .link { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 0.85rem; }
+.center { text-align: center; }
+
+/* Usuario y saludo */
+.user { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.top .user .link { margin-left: 0; }
+.avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--panel-2); border: 1px solid var(--accent); display: grid; place-items: center; font-weight: 700; color: var(--accent); }
+.hello { font-size: 1.05rem; margin: 0 0 12px; }
+
+/* Distribución */
+.alloc-bar { display: flex; height: 12px; border-radius: 999px; overflow: hidden; background: var(--panel-2); margin: 6px 0 12px; }
+.alloc-bar span { display: block; height: 100%; }
+.alloc-list { list-style: none; padding: 0; margin: 0; }
+.alloc-list li { display: grid; grid-template-columns: 12px 1fr auto auto; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.sw { width: 12px; height: 12px; border-radius: 3px; }
+.full-btn { width: 100%; margin-bottom: 16px; }
+.card.mini { padding: 14px 16px; }
+.big-2 { font-size: 1.4rem; font-weight: 600; }
+
 /* Menú principal */
 .menu { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 4px; margin-bottom: 16px; }
 .menu button { background: transparent; border: none; border-radius: 9px; padding: 10px; cursor: pointer; font-weight: 600; color: var(--muted); }
